@@ -223,6 +223,12 @@ func (s *ConferenceService) Update(ctx context.Context, id uuid.UUID, input api.
 		return api.Conference{}, err
 	}
 
+	// Re-materialize pending reminders for all users who starred this conference,
+	// since any deadline may have changed.
+	if err := rematerializeConferenceReminders(ctx, qtx, row); err != nil {
+		return api.Conference{}, err
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return api.Conference{}, fmt.Errorf("commit: %w", err)
 	}
@@ -241,14 +247,30 @@ func (s *ConferenceService) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// Archive sets archived_at on a conference (idempotent).
+// Archive sets archived_at on a conference and cancels all pending reminders.
 func (s *ConferenceService) Archive(ctx context.Context, id uuid.UUID) (api.Conference, error) {
-	row, err := s.q.ArchiveConference(ctx, id)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return api.Conference{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	qtx := repository.New(tx)
+
+	row, err := qtx.ArchiveConference(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.Conference{}, ErrNotFound
 		}
 		return api.Conference{}, fmt.Errorf("archive conference: %w", err)
+	}
+
+	if err := qtx.CancelConferenceReminders(ctx, id); err != nil {
+		return api.Conference{}, fmt.Errorf("cancel reminders: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return api.Conference{}, fmt.Errorf("commit: %w", err)
 	}
 	return s.attachTagsAndTracks(ctx, row)
 }
@@ -533,4 +555,25 @@ func float32PtrToNumeric(f *float32) pgtype.Numeric {
 
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "unique")
+}
+
+// rematerializeConferenceReminders deletes all pending reminders for this conference
+// (per DATA_MODEL.md §3.8 deadline-edit rule) and re-inserts fresh rows for every
+// user who starred it, using their current settings.
+func rematerializeConferenceReminders(ctx context.Context, qtx *repository.Queries, conf repository.Conference) error {
+	if err := qtx.DeleteConferencePendingReminders(ctx, conf.ID); err != nil {
+		return fmt.Errorf("delete conference pending reminders: %w", err)
+	}
+	users, err := qtx.ListUsersStarringConferenceWithSettings(ctx, conf.ID)
+	if err != nil {
+		return fmt.Errorf("list starring users: %w", err)
+	}
+	deadlines := conferenceDeadlines(conf)
+	for _, u := range users {
+		if err := materializeReminders(ctx, qtx, u.UserID, conf.ID,
+			u.Timezone, u.ReminderLeadDays, deadlines); err != nil {
+			return err
+		}
+	}
+	return nil
 }
