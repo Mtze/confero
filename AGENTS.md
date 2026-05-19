@@ -232,7 +232,58 @@ A common shape that fits almost every feature in this repo:
 
 ---
 
-## 8. When in doubt
+## 8. Concrete recipes
+
+### How to add a field to Conference
+
+1. Update `api/openapi.yaml`: add the field to `Conference` and `ConferenceInput` schemas.
+   Mark it `nullable: true` if optional.
+2. Add a migration: `make migrate-new name=add_<fieldname>_to_conferences`.
+   Write the `*.up.sql` (`ALTER TABLE conferences ADD COLUMN ...`) and `*.down.sql`.
+3. Update the sqlc queries in `server/db/queries/conferences.sql`:
+   - `ListConferences`, `GetConference`, `CreateConference`, `UpdateConference` all project
+     or accept the field. Re-run `make generate` to regenerate `repository/conferences.sql.go`.
+4. Update `service.ImportInput` in `server/internal/service/conferences.go` and
+   `importInputFromYAML` in `server/internal/service/import.go` if the field is importable.
+5. Update `server/internal/http/server.go` handlers:
+   - `CreateConference` / `UpdateConference` to pass the new field.
+   - `rowToConference` (or equivalent) to map DB row to `api.Conference`.
+6. Update `server/internal/ical/encoder.go` if the field should appear in calendar events.
+7. Add a column to `IMPORT_FORMAT.md` if the field is importable.
+8. Add or update the relevant unit/API tests.
+9. Run `make generate && make lint && make test`.
+
+### How to add a new HTTP endpoint
+
+1. Edit `api/openapi.yaml` - add the path+operation, request body schema, response schemas,
+   security requirement (`sessionCookie: []`), and operationId.
+2. Run `make generate` - this regenerates `server/internal/api/api.gen.go` (server interface)
+   and `web/src/api/` (TypeScript client).
+3. Implement the `StrictServerInterface` method in `server/internal/http/server.go`.
+   Use `auth.RequireMember` / `auth.RequireAdmin` groups and `audit.For(...)` middleware
+   as needed (see the routing block in `NewRouter`).
+4. If the endpoint requires a new service method, add it in `server/internal/service/`.
+5. Write an API test in `server/tests/api/` covering at least 2xx + 401/403 + 404.
+6. Add a Bruno request in `bruno/confero/`.
+7. Wire the frontend: generate types are already updated by `make generate`;
+   add the page/component under `web/src/features/` or `web/src/pages/`.
+
+### How to add a migration
+
+```bash
+# Creates server/db/migrations/<timestamp>_<name>.up.sql and ...down.sql
+make migrate-new name=my_change
+```
+
+Write idempotent migrations where possible. The `*.down.sql` must exactly undo the
+`*.up.sql`. Test locally with `make migrate-up` / `make migrate-down`.
+
+After adding or changing a migration that alters tables sqlc queries touch,
+re-run `make generate` to keep `server/internal/repository/` in sync.
+
+---
+
+## 9. When in doubt
 
 Default to the design docs, not to "what's conventional
 elsewhere". If the docs are unclear or out of date, fix the docs
