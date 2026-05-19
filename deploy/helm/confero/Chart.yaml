@@ -1,0 +1,12 @@
+apiVersion: v2
+name: confero
+description: Conference tracking tool for the TUM CS Education chair
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - conferences
+  - cs-education
+  - tum
+maintainers:
+  - name: CS Education Chair TUM

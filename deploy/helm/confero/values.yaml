@@ -1,0 +1,18 @@
+# Default values for confero.
+# Helm chart is fleshed out in M12; this stub allows helm lint to pass in M0.
+
+image:
+  server:
+    repository: ghcr.io/mtze/confero-server
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  web:
+    repository: ghcr.io/mtze/confero-web
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+
+server:
+  replicaCount: 1
+
+web:
+  replicaCount: 2
