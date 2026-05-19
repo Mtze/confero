@@ -1,4 +1,4 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
   title: Confero API
   description: Conference tracking API for the TUM CS Education chair.
@@ -7,7 +7,7 @@ info:
     name: CS Education Chair, TU München
   license:
     name: MIT
-    identifier: MIT
+    url: https://opensource.org/licenses/MIT
 servers:
   - url: /
     description: Same-origin (proxied by ingress in production)
@@ -19,6 +19,12 @@ tags:
     description: Infrastructure endpoints (health, readiness, metrics)
   - name: users
     description: Authenticated user profile
+  - name: conferences
+    description: Conference catalog management
+  - name: tags
+    description: Conference tags (autocomplete source)
+  - name: tracks
+    description: Conference submission track types
 
 paths:
   /healthz:
@@ -53,6 +59,245 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/v1/conferences:
+    get:
+      operationId: listConferences
+      summary: List conferences
+      description: >
+        Returns the conference catalog. Public endpoint — no authentication required.
+        By default, archived conferences are excluded.
+      tags: [conferences]
+      parameters:
+        - name: archived
+          in: query
+          description: Include archived conferences when true.
+          schema:
+            type: boolean
+            default: false
+        - name: tag
+          in: query
+          description: Filter by tag slug.
+          schema:
+            type: string
+        - name: track
+          in: query
+          description: Filter by track code.
+          schema:
+            type: string
+        - name: q
+          in: query
+          description: Free-text search on name and acronym (case-insensitive).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of conferences
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Conference'
+
+    post:
+      operationId: createConference
+      summary: Create a conference
+      description: Creates a new conference. Requires member role.
+      tags: [conferences]
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConferenceInput'
+      responses:
+        '201':
+          description: Conference created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conference'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/v1/conferences/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      operationId: getConference
+      summary: Get a conference
+      description: Returns a single conference by ID. Public endpoint.
+      tags: [conferences]
+      responses:
+        '200':
+          description: Conference found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conference'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      operationId: updateConference
+      summary: Update a conference
+      description: Replaces all editable fields of a conference. Requires member role.
+      tags: [conferences]
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConferenceInput'
+      responses:
+        '200':
+          description: Conference updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conference'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      operationId: deleteConference
+      summary: Delete a conference
+      description: Permanently deletes a conference and all associated data. Requires admin role.
+      tags: [conferences]
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Conference deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/conferences/{id}/archive:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: archiveConference
+      summary: Archive a conference
+      description: Sets archived_at on the conference. Idempotent. Requires member role.
+      tags: [conferences]
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Conference archived (or was already archived)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conference'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/conferences/{id}/unarchive:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: unarchiveConference
+      summary: Unarchive a conference
+      description: Clears archived_at on the conference. Idempotent. Requires member role.
+      tags: [conferences]
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Conference unarchived (or was already active)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conference'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/tags:
+    get:
+      operationId: listTags
+      summary: List all tags
+      description: Returns all tags for use in the conference form autocomplete. Requires authentication.
+      tags: [tags]
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tag'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/tracks:
+    get:
+      operationId: listTracks
+      summary: List all track types
+      description: Returns the closed set of submission track types. Requires authentication.
+      tags: [tracks]
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: List of tracks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Track'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -63,6 +308,34 @@ components:
   responses:
     Unauthorized:
       description: Authentication required or token invalid/expired
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    Forbidden:
+      description: Insufficient permissions for this operation
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    BadRequest:
+      description: Request body failed validation
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    Conflict:
+      description: Resource already exists (e.g. duplicate acronym+year)
       content:
         application/problem+json:
           schema:
@@ -100,6 +373,217 @@ components:
           items:
             type: string
             enum: [member, admin]
+
+    Conference:
+      type: object
+      required:
+        - id
+        - name
+        - acronym
+        - year
+        - location
+        - tags
+        - tracks
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        acronym:
+          type: string
+        year:
+          type: integer
+        location:
+          type: string
+        website_url:
+          type: string
+          nullable: true
+        cfp_url:
+          type: string
+          nullable: true
+        primary_deadline:
+          type: string
+          format: date-time
+          nullable: true
+        abstract_deadline:
+          type: string
+          format: date-time
+          nullable: true
+        notification_date:
+          type: string
+          format: date-time
+          nullable: true
+        camera_ready_date:
+          type: string
+          format: date-time
+          nullable: true
+        event_start_date:
+          type: string
+          format: date
+          nullable: true
+        event_end_date:
+          type: string
+          format: date
+          nullable: true
+        core_rank:
+          type: string
+          enum: ["A*", "A", "B", "C", "Unranked"]
+          nullable: true
+        h5_index:
+          type: integer
+          nullable: true
+        acceptance_rate_pct:
+          type: number
+          nullable: true
+        dblp_key:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+        updated_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Track'
+
+    ConferenceInput:
+      type: object
+      required:
+        - name
+        - acronym
+        - year
+        - location
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        acronym:
+          type: string
+          minLength: 1
+          maxLength: 50
+        year:
+          type: integer
+          minimum: 2000
+          maximum: 2100
+        location:
+          type: string
+          minLength: 1
+        website_url:
+          type: string
+          nullable: true
+        cfp_url:
+          type: string
+          nullable: true
+        primary_deadline:
+          type: string
+          format: date-time
+          nullable: true
+        abstract_deadline:
+          type: string
+          format: date-time
+          nullable: true
+        notification_date:
+          type: string
+          format: date-time
+          nullable: true
+        camera_ready_date:
+          type: string
+          format: date-time
+          nullable: true
+        event_start_date:
+          type: string
+          format: date
+          nullable: true
+        event_end_date:
+          type: string
+          format: date
+          nullable: true
+        core_rank:
+          type: string
+          enum: ["A*", "A", "B", "C", "Unranked"]
+          nullable: true
+        h5_index:
+          type: integer
+          minimum: 0
+          nullable: true
+        acceptance_rate_pct:
+          type: number
+          minimum: 0
+          maximum: 100
+          nullable: true
+        dblp_key:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        tag_slugs:
+          type: array
+          items:
+            type: string
+          description: >
+            Tag slugs to associate with the conference.
+            Unknown slugs cause a new tag to be created using the slug as both slug and name.
+        track_codes:
+          type: array
+          items:
+            type: string
+          description: Track codes to associate with the conference.
+
+    Tag:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+
+    Track:
+      type: object
+      required:
+        - code
+        - display_name
+        - sort_order
+      properties:
+        code:
+          type: string
+        display_name:
+          type: string
+        sort_order:
+          type: integer
 
     ProblemDetail:
       type: object

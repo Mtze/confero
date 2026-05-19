@@ -1,0 +1,7 @@
+apis:
+  main:
+    root: api/openapi.yaml
+
+rules:
+  # Public read endpoints (list/get conferences) intentionally have no 4xx responses.
+  operation-4xx-response: warn
