@@ -287,6 +287,125 @@ func (s *ConferenceService) Unarchive(ctx context.Context, id uuid.UUID) (api.Co
 	return s.attachTagsAndTracks(ctx, row)
 }
 
+// ImportInput holds the data parsed from a YAML import.
+type ImportInput struct {
+	Name              string
+	Acronym           string
+	Year              int32
+	Location          string
+	WebsiteURL        *string
+	CFPURL            *string
+	PrimaryDeadline   *time.Time
+	AbstractDeadline  *time.Time
+	NotificationDate  *time.Time
+	CameraReadyDate   *time.Time
+	EventStartDate    *openapi_types.Date
+	EventEndDate      *openapi_types.Date
+	CoreRank          *string
+	H5Index           *int32
+	AcceptanceRatePct *float32
+	DblpKey           *string
+	Notes             *string
+	Tags              []string
+	Tracks            []string
+}
+
+// UpsertFromImport creates or updates a conference based on the import input.
+// Returns (true, nil) for a create, (false, nil) for an update.
+func (s *ConferenceService) UpsertFromImport(ctx context.Context, in ImportInput, actorID uuid.UUID) (bool, error) {
+	existing, lookupErr := s.q.GetConferenceByAcronymYear(ctx, repository.GetConferenceByAcronymYearParams{
+		Acronym: in.Acronym,
+		Year:    in.Year,
+	})
+
+	tx, txErr := s.pool.Begin(ctx)
+	if txErr != nil {
+		return false, fmt.Errorf("begin tx: %w", txErr)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	qtx := repository.New(tx)
+	actor := pgtype.UUID{Bytes: actorID, Valid: true}
+
+	if lookupErr != nil {
+		// Not found — create.
+		row, createErr := qtx.CreateConference(ctx, repository.CreateConferenceParams{
+			Name:              in.Name,
+			Acronym:           in.Acronym,
+			Year:              in.Year,
+			Location:          in.Location,
+			WebsiteUrl:        in.WebsiteURL,
+			CfpUrl:            in.CFPURL,
+			PrimaryDeadline:   timePtrToTimestamptz(in.PrimaryDeadline),
+			AbstractDeadline:  timePtrToTimestamptz(in.AbstractDeadline),
+			NotificationDate:  timePtrToTimestamptz(in.NotificationDate),
+			CameraReadyDate:   timePtrToTimestamptz(in.CameraReadyDate),
+			EventStartDate:    datePtrToDate(in.EventStartDate),
+			EventEndDate:      datePtrToDate(in.EventEndDate),
+			CoreRank:          in.CoreRank,
+			H5Index:           in.H5Index,
+			AcceptanceRatePct: float32PtrToNumeric(in.AcceptanceRatePct),
+			DblpKey:           in.DblpKey,
+			Notes:             in.Notes,
+			CreatedBy:         actor,
+			UpdatedBy:         actor,
+		})
+		if createErr != nil {
+			return false, fmt.Errorf("create conference: %w", createErr)
+		}
+		if _, _, err2 := setTagsAndTracks(ctx, qtx, row.ID, ptrSlice(in.Tags), ptrSlice(in.Tracks)); err2 != nil {
+			return false, err2
+		}
+		if err2 := tx.Commit(ctx); err2 != nil {
+			return false, fmt.Errorf("commit: %w", err2)
+		}
+		return true, nil
+	}
+
+	// Found — update.
+	row, updateErr := qtx.UpdateConference(ctx, repository.UpdateConferenceParams{
+		ID:                existing.ID,
+		Name:              in.Name,
+		Acronym:           in.Acronym,
+		Year:              in.Year,
+		Location:          in.Location,
+		WebsiteUrl:        in.WebsiteURL,
+		CfpUrl:            in.CFPURL,
+		PrimaryDeadline:   timePtrToTimestamptz(in.PrimaryDeadline),
+		AbstractDeadline:  timePtrToTimestamptz(in.AbstractDeadline),
+		NotificationDate:  timePtrToTimestamptz(in.NotificationDate),
+		CameraReadyDate:   timePtrToTimestamptz(in.CameraReadyDate),
+		EventStartDate:    datePtrToDate(in.EventStartDate),
+		EventEndDate:      datePtrToDate(in.EventEndDate),
+		CoreRank:          in.CoreRank,
+		H5Index:           in.H5Index,
+		AcceptanceRatePct: float32PtrToNumeric(in.AcceptanceRatePct),
+		DblpKey:           in.DblpKey,
+		Notes:             in.Notes,
+		UpdatedBy:         actor,
+	})
+	if updateErr != nil {
+		return false, fmt.Errorf("update conference: %w", updateErr)
+	}
+	if _, _, err2 := setTagsAndTracks(ctx, qtx, row.ID, ptrSlice(in.Tags), ptrSlice(in.Tracks)); err2 != nil {
+		return false, err2
+	}
+	if err2 := rematerializeConferenceReminders(ctx, qtx, row); err2 != nil {
+		return false, fmt.Errorf("rematerialize: %w", err2)
+	}
+	if err2 := tx.Commit(ctx); err2 != nil {
+		return false, fmt.Errorf("commit: %w", err2)
+	}
+	return false, nil
+}
+
+func ptrSlice(s []string) *[]string {
+	if len(s) == 0 {
+		return nil
+	}
+	return &s
+}
+
 // ListTags returns all tags sorted by slug.
 func (s *ConferenceService) ListTags(ctx context.Context) ([]api.Tag, error) {
 	rows, err := s.q.ListTags(ctx)
