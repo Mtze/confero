@@ -42,6 +42,8 @@ type OIDCHandler struct {
 }
 
 // NewOIDCHandler discovers the OIDC provider and wires up the handler.
+// Discovery is retried up to 10 times with a 3-second backoff so the server
+// starts cleanly even when Keycloak is still initialising alongside it.
 func NewOIDCHandler(
 	ctx context.Context,
 	issuerURL, clientID, clientSecret, redirectURL string,
@@ -50,7 +52,18 @@ func NewOIDCHandler(
 	users UserUpserter,
 	logger *slog.Logger,
 ) (*OIDCHandler, error) {
-	provider, err := gooidc.NewProvider(ctx, issuerURL)
+	var provider *gooidc.Provider
+	var err error
+	for attempt := 1; attempt <= 10; attempt++ {
+		provider, err = gooidc.NewProvider(ctx, issuerURL)
+		if err == nil {
+			break
+		}
+		if attempt < 10 {
+			logger.Warn("OIDC provider not ready, retrying", "attempt", attempt, "err", err)
+			time.Sleep(3 * time.Second)
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("oidc provider discovery: %w", err)
 	}
