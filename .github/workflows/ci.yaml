@@ -153,6 +153,54 @@ jobs:
         run: pnpm build
 
   # --------------------------------------------------------------------------- #
+  # Codegen drift check                                                        #
+  # --------------------------------------------------------------------------- #
+
+  codegen-drift:
+    name: Codegen drift check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate Go server stubs
+        working-directory: server
+        run: |
+          go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
+            -config oapi-codegen.yaml ../api/openapi.yaml
+
+      - name: Regenerate TypeScript client
+        working-directory: web
+        run: node_modules/.bin/openapi-ts --config openapi-ts.config.ts
+
+      - name: Fail if generated code drifted
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::Generated code is out of sync with the spec."
+            echo "Run 'make generate' locally and commit the result."
+            exit 1
+          fi
+
+  # --------------------------------------------------------------------------- #
   # OpenAPI                                                                     #
   # --------------------------------------------------------------------------- #
 

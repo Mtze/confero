@@ -25,13 +25,10 @@ generate: ## Regenerate OpenAPI stubs, sqlc queries, and TypeScript client
 	@echo "==> Done. Run 'git status' to see generated changes."
 
 .PHONY: generate-api
-generate-api: ## Generate Go server stubs from api/openapi.yaml (requires oapi-codegen)
-	@if command -v oapi-codegen >/dev/null 2>&1; then \
-		echo "  [api] oapi-codegen ..."; \
-		oapi-codegen -config $(SERVER_DIR)/oapi-codegen.yaml api/openapi.yaml; \
-	else \
-		echo "  [api] oapi-codegen not installed — skipping (install: go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest)"; \
-	fi
+generate-api: ## Generate Go server stubs from api/openapi.yaml
+	@echo "  [api] oapi-codegen ..."
+	cd $(SERVER_DIR) && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
+		-config oapi-codegen.yaml ../api/openapi.yaml
 
 .PHONY: generate-sqlc
 generate-sqlc: ## Generate repository code from SQL queries (requires sqlc)
@@ -43,13 +40,9 @@ generate-sqlc: ## Generate repository code from SQL queries (requires sqlc)
 	fi
 
 .PHONY: generate-ts-client
-generate-ts-client: ## Generate TypeScript client from api/openapi.yaml (requires @hey-api/openapi-ts)
-	@if [ -f "$(WEB_DIR)/node_modules/.bin/openapi-ts" ]; then \
-		echo "  [ts]  openapi-ts ..."; \
-		cd $(WEB_DIR) && pnpm openapi-ts; \
-	else \
-		echo "  [ts]  @hey-api/openapi-ts not installed — skipping (set up in M1)"; \
-	fi
+generate-ts-client: ## Generate TypeScript client from api/openapi.yaml
+	@echo "  [ts]  openapi-ts ..."
+	cd $(WEB_DIR) && node_modules/.bin/openapi-ts --config openapi-ts.config.ts
 
 # --------------------------------------------------------------------------- #
 # Linting                                                                      #
