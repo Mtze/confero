@@ -1,0 +1,31 @@
+meta {
+  name: Import Conferences
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/v1/import
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: text/x-yaml
+}
+
+body:text {
+  conferences:
+    - name: SIGCSE Technical Symposium
+      acronym: SIGCSE
+      year: 2027
+      location: Pittsburgh, PA
+      website_url: https://sigcse2027.sigcse.org
+      core_rank: A
+      primary_deadline: 2026-09-15T23:59:00Z
+      abstract_deadline: 2026-09-08T23:59:00Z
+      event_start_date: 2027-03-08
+      event_end_date: 2027-03-12
+      tags: [CS education, pedagogy]
+      tracks: []
+}
