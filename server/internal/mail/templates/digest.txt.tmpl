@@ -1,0 +1,11 @@
+Hello {{.UserName}},
+
+Your Confero weekly digest for the week starting {{formatDate .WeekStart}}:
+{{if .Items}}
+{{- range .Items}}
+- {{.ConferenceName}} ({{.ConferenceAcronym}}): {{.DeadlineKind}} deadline on {{formatDate .DeadlineDate}}
+{{- end}}
+{{else}}
+No upcoming deadlines this week.
+{{end}}
+- Confero

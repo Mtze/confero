@@ -12,6 +12,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countPendingDigests = `-- name: CountPendingDigests :one
+SELECT COUNT(*) FROM digest_dispatch_log WHERE status = 'pending'
+`
+
+func (q *Queries) CountPendingDigests(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countPendingDigests)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countPendingReminders = `-- name: CountPendingReminders :one
 SELECT COUNT(*) FROM reminder_dispatch_log WHERE status = 'pending'
 `
@@ -21,6 +32,24 @@ func (q *Queries) CountPendingReminders(ctx context.Context) (int64, error) {
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const incrementDigestAttempt = `-- name: IncrementDigestAttempt :exec
+UPDATE digest_dispatch_log
+SET attempts   = attempts + 1,
+    last_error = $1,
+    updated_at = now()
+WHERE id = $2
+`
+
+type IncrementDigestAttemptParams struct {
+	LastError *string   `json:"last_error"`
+	ID        uuid.UUID `json:"id"`
+}
+
+func (q *Queries) IncrementDigestAttempt(ctx context.Context, arg IncrementDigestAttemptParams) error {
+	_, err := q.db.Exec(ctx, incrementDigestAttempt, arg.LastError, arg.ID)
+	return err
 }
 
 const incrementReminderAttempt = `-- name: IncrementReminderAttempt :exec
@@ -38,6 +67,66 @@ type IncrementReminderAttemptParams struct {
 
 func (q *Queries) IncrementReminderAttempt(ctx context.Context, arg IncrementReminderAttemptParams) error {
 	_, err := q.db.Exec(ctx, incrementReminderAttempt, arg.LastError, arg.ID)
+	return err
+}
+
+const insertDigestRow = `-- name: InsertDigestRow :exec
+INSERT INTO digest_dispatch_log (user_id, week_starting, scheduled_for)
+VALUES ($1, $2, $3)
+ON CONFLICT (user_id, week_starting) DO NOTHING
+`
+
+type InsertDigestRowParams struct {
+	UserID       uuid.UUID          `json:"user_id"`
+	WeekStarting pgtype.Date        `json:"week_starting"`
+	ScheduledFor pgtype.Timestamptz `json:"scheduled_for"`
+}
+
+func (q *Queries) InsertDigestRow(ctx context.Context, arg InsertDigestRowParams) error {
+	_, err := q.db.Exec(ctx, insertDigestRow, arg.UserID, arg.WeekStarting, arg.ScheduledFor)
+	return err
+}
+
+const markDigestFailed = `-- name: MarkDigestFailed :exec
+UPDATE digest_dispatch_log
+SET status     = 'failed',
+    last_error = $1,
+    updated_at = now()
+WHERE id = $2
+`
+
+type MarkDigestFailedParams struct {
+	LastError *string   `json:"last_error"`
+	ID        uuid.UUID `json:"id"`
+}
+
+func (q *Queries) MarkDigestFailed(ctx context.Context, arg MarkDigestFailedParams) error {
+	_, err := q.db.Exec(ctx, markDigestFailed, arg.LastError, arg.ID)
+	return err
+}
+
+const markDigestSent = `-- name: MarkDigestSent :exec
+UPDATE digest_dispatch_log
+SET status     = 'sent',
+    sent_at    = now(),
+    updated_at = now()
+WHERE id = $1
+`
+
+func (q *Queries) MarkDigestSent(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markDigestSent, id)
+	return err
+}
+
+const markDigestSkipped = `-- name: MarkDigestSkipped :exec
+UPDATE digest_dispatch_log
+SET status     = 'skipped',
+    updated_at = now()
+WHERE id = $1
+`
+
+func (q *Queries) MarkDigestSkipped(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markDigestSkipped, id)
 	return err
 }
 
@@ -72,6 +161,103 @@ func (q *Queries) MarkReminderSent(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const selectDigestDueUsers = `-- name: SelectDigestDueUsers :many
+SELECT u.id AS user_id
+FROM users u
+JOIN user_settings us ON us.user_id = u.id
+WHERE us.weekly_digest_enabled = true
+  AND EXTRACT(DOW  FROM timezone(us.timezone, $1))::smallint = us.weekly_digest_day
+  AND EXTRACT(HOUR FROM timezone(us.timezone, $1))::smallint = us.weekly_digest_hour
+  AND NOT EXISTS (
+      SELECT 1 FROM digest_dispatch_log d
+      WHERE d.user_id = u.id AND d.week_starting = $2
+  )
+`
+
+type SelectDigestDueUsersParams struct {
+	Now          interface{} `json:"now"`
+	WeekStarting pgtype.Date `json:"week_starting"`
+}
+
+func (q *Queries) SelectDigestDueUsers(ctx context.Context, arg SelectDigestDueUsersParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, selectDigestDueUsers, arg.Now, arg.WeekStarting)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const selectDueDigests = `-- name: SelectDueDigests :many
+SELECT d.id,
+       d.user_id,
+       d.week_starting,
+       d.scheduled_for,
+       d.attempts,
+       u.email        AS user_email,
+       u.display_name AS user_name,
+       us.weekly_digest_horizon_weeks
+FROM digest_dispatch_log d
+JOIN users        u  ON u.id  = d.user_id
+JOIN user_settings us ON us.user_id = d.user_id
+WHERE d.status = 'pending'
+  AND d.scheduled_for <= $1
+ORDER BY d.scheduled_for
+LIMIT 50
+FOR UPDATE OF d SKIP LOCKED
+`
+
+type SelectDueDigestsRow struct {
+	ID                       uuid.UUID          `json:"id"`
+	UserID                   uuid.UUID          `json:"user_id"`
+	WeekStarting             pgtype.Date        `json:"week_starting"`
+	ScheduledFor             pgtype.Timestamptz `json:"scheduled_for"`
+	Attempts                 int32              `json:"attempts"`
+	UserEmail                string             `json:"user_email"`
+	UserName                 string             `json:"user_name"`
+	WeeklyDigestHorizonWeeks int16              `json:"weekly_digest_horizon_weeks"`
+}
+
+func (q *Queries) SelectDueDigests(ctx context.Context, now pgtype.Timestamptz) ([]SelectDueDigestsRow, error) {
+	rows, err := q.db.Query(ctx, selectDueDigests, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SelectDueDigestsRow
+	for rows.Next() {
+		var i SelectDueDigestsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.WeekStarting,
+			&i.ScheduledFor,
+			&i.Attempts,
+			&i.UserEmail,
+			&i.UserName,
+			&i.WeeklyDigestHorizonWeeks,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const selectDueReminders = `-- name: SelectDueReminders :many
 SELECT r.id,
        r.user_id,
@@ -80,10 +266,14 @@ SELECT r.id,
        r.lead_time_days,
        r.scheduled_for,
        r.attempts,
-       u.email        AS user_email,
-       u.display_name AS user_name,
-       c.name         AS conference_name,
-       c.acronym      AS conference_acronym
+       u.email              AS user_email,
+       u.display_name       AS user_name,
+       c.name               AS conference_name,
+       c.acronym            AS conference_acronym,
+       c.primary_deadline,
+       c.abstract_deadline,
+       c.notification_date,
+       c.camera_ready_date
 FROM reminder_dispatch_log r
 JOIN users       u ON u.id = r.user_id
 JOIN conferences c ON c.id = r.conference_id
@@ -106,6 +296,10 @@ type SelectDueRemindersRow struct {
 	UserName          string             `json:"user_name"`
 	ConferenceName    string             `json:"conference_name"`
 	ConferenceAcronym string             `json:"conference_acronym"`
+	PrimaryDeadline   pgtype.Timestamptz `json:"primary_deadline"`
+	AbstractDeadline  pgtype.Timestamptz `json:"abstract_deadline"`
+	NotificationDate  pgtype.Timestamptz `json:"notification_date"`
+	CameraReadyDate   pgtype.Timestamptz `json:"camera_ready_date"`
 }
 
 func (q *Queries) SelectDueReminders(ctx context.Context, now pgtype.Timestamptz) ([]SelectDueRemindersRow, error) {
@@ -129,6 +323,10 @@ func (q *Queries) SelectDueReminders(ctx context.Context, now pgtype.Timestamptz
 			&i.UserName,
 			&i.ConferenceName,
 			&i.ConferenceAcronym,
+			&i.PrimaryDeadline,
+			&i.AbstractDeadline,
+			&i.NotificationDate,
+			&i.CameraReadyDate,
 		); err != nil {
 			return nil, err
 		}

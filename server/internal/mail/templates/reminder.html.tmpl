@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+<p>Hello <strong>{{.UserName}}</strong>,</p>
+<p>
+  The <strong>{{.DeadlineKind}}</strong> deadline for
+  <strong>{{.ConferenceName}} ({{.ConferenceAcronym}})</strong>
+  is in <strong>{{.LeadTimeDays}} day(s)</strong>,
+  on <strong>{{formatDate .DeadlineDate}}</strong>.
+</p>
+<p>Log in to Confero to review your starred conferences.</p>
+<p style="color:#666;font-size:0.85em">- Confero</p>
+</body>
+</html>

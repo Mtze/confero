@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+<p>Hello <strong>Alice Tester</strong>,</p>
+<p>
+  The <strong>submission</strong> deadline for
+  <strong>International Conference on Education (ICEd)</strong>
+  is in <strong>7 day(s)</strong>,
+  on <strong>15 Sep 2026</strong>.
+</p>
+<p>Log in to Confero to review your starred conferences.</p>
+<p style="color:#666;font-size:0.85em">- Confero</p>
+</body>
+</html>

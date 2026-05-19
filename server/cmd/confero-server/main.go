@@ -77,7 +77,19 @@ func run() int {
 	srv := chihttp.NewServer(logger, confSvc, starSvc, settingsSvc)
 	router := chihttp.NewRouter(srv, tm, oidcHandler)
 
-	mailer := &mail.FakeMailer{}
+	var mailer mail.Mailer
+	if cfg.SMTPAddr != "" {
+		mailer = mail.NewSMTPMailer(mail.SMTPConfig{
+			Addr:     cfg.SMTPAddr,
+			From:     cfg.SMTPFrom,
+			Username: cfg.SMTPUsername,
+			Password: cfg.SMTPPassword,
+		})
+		logger.Info("SMTP mailer configured", "addr", cfg.SMTPAddr, "from", cfg.SMTPFrom)
+	} else {
+		mailer = &mail.FakeMailer{}
+		logger.Info("using fake mailer (CONFERO_SMTP_ADDR not set)")
+	}
 	sched := scheduler.New(scheduler.Config{
 		Tick:      60 * time.Second,
 		Mailer:    mailer,
