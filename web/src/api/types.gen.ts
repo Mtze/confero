@@ -84,6 +84,42 @@ export type Track = {
     sort_order: number;
 };
 
+export type UserSettings = {
+    /**
+     * IANA timezone name.
+     */
+    timezone: string;
+    /**
+     * Days before each deadline to send a reminder email.
+     */
+    reminder_lead_days: Array<number>;
+    /**
+     * Whether to receive a weekly digest of upcoming deadlines.
+     */
+    weekly_digest_enabled: boolean;
+    /**
+     * Day of week for the digest (0=Sunday … 6=Saturday).
+     */
+    weekly_digest_day: number;
+    /**
+     * Hour of day (in user timezone) to send the digest.
+     */
+    weekly_digest_hour: number;
+    /**
+     * How many weeks ahead to include in the weekly digest.
+     */
+    weekly_digest_horizon_weeks: number;
+};
+
+export type UserSettingsInput = {
+    timezone: string;
+    reminder_lead_days: Array<number>;
+    weekly_digest_enabled: boolean;
+    weekly_digest_day: number;
+    weekly_digest_hour: number;
+    weekly_digest_horizon_weeks: number;
+};
+
 export type ProblemDetail = {
     title?: string;
     status?: number;
@@ -375,6 +411,155 @@ export type UnarchiveConferenceResponses = {
 };
 
 export type UnarchiveConferenceResponse = UnarchiveConferenceResponses[keyof UnarchiveConferenceResponses];
+
+export type UnstarConferenceData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conferences/{id}/stars';
+};
+
+export type UnstarConferenceErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+    /**
+     * Insufficient permissions for this operation
+     */
+    403: ProblemDetail;
+    /**
+     * Resource not found
+     */
+    404: ProblemDetail;
+};
+
+export type UnstarConferenceError = UnstarConferenceErrors[keyof UnstarConferenceErrors];
+
+export type UnstarConferenceResponses = {
+    /**
+     * Conference unstarred (or was not starred)
+     */
+    204: void;
+};
+
+export type UnstarConferenceResponse = UnstarConferenceResponses[keyof UnstarConferenceResponses];
+
+export type StarConferenceData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conferences/{id}/stars';
+};
+
+export type StarConferenceErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+    /**
+     * Insufficient permissions for this operation
+     */
+    403: ProblemDetail;
+    /**
+     * Resource not found
+     */
+    404: ProblemDetail;
+};
+
+export type StarConferenceError = StarConferenceErrors[keyof StarConferenceErrors];
+
+export type StarConferenceResponses = {
+    /**
+     * Conference starred (or was already starred)
+     */
+    204: void;
+};
+
+export type StarConferenceResponse = StarConferenceResponses[keyof StarConferenceResponses];
+
+export type ListMyStarsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/stars';
+};
+
+export type ListMyStarsErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+};
+
+export type ListMyStarsError = ListMyStarsErrors[keyof ListMyStarsErrors];
+
+export type ListMyStarsResponses = {
+    /**
+     * List of starred conferences
+     */
+    200: Array<Conference>;
+};
+
+export type ListMyStarsResponse = ListMyStarsResponses[keyof ListMyStarsResponses];
+
+export type GetMySettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/settings';
+};
+
+export type GetMySettingsErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+};
+
+export type GetMySettingsError = GetMySettingsErrors[keyof GetMySettingsErrors];
+
+export type GetMySettingsResponses = {
+    /**
+     * User settings
+     */
+    200: UserSettings;
+};
+
+export type GetMySettingsResponse = GetMySettingsResponses[keyof GetMySettingsResponses];
+
+export type UpdateMySettingsData = {
+    body: UserSettingsInput;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/settings';
+};
+
+export type UpdateMySettingsErrors = {
+    /**
+     * Request body failed validation
+     */
+    400: ProblemDetail;
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+};
+
+export type UpdateMySettingsError = UpdateMySettingsErrors[keyof UpdateMySettingsErrors];
+
+export type UpdateMySettingsResponses = {
+    /**
+     * Updated user settings
+     */
+    200: UserSettings;
+};
+
+export type UpdateMySettingsResponse = UpdateMySettingsResponses[keyof UpdateMySettingsResponses];
 
 export type ListTagsData = {
     body?: never;

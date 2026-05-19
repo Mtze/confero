@@ -210,6 +210,37 @@ type Track struct {
 	SortOrder   int    `json:"sort_order"`
 }
 
+// UserSettings defines model for UserSettings.
+type UserSettings struct {
+	// ReminderLeadDays Days before each deadline to send a reminder email.
+	ReminderLeadDays []int `json:"reminder_lead_days"`
+
+	// Timezone IANA timezone name.
+	Timezone string `json:"timezone"`
+
+	// WeeklyDigestDay Day of week for the digest (0=Sunday … 6=Saturday).
+	WeeklyDigestDay int `json:"weekly_digest_day"`
+
+	// WeeklyDigestEnabled Whether to receive a weekly digest of upcoming deadlines.
+	WeeklyDigestEnabled bool `json:"weekly_digest_enabled"`
+
+	// WeeklyDigestHorizonWeeks How many weeks ahead to include in the weekly digest.
+	WeeklyDigestHorizonWeeks int `json:"weekly_digest_horizon_weeks"`
+
+	// WeeklyDigestHour Hour of day (in user timezone) to send the digest.
+	WeeklyDigestHour int `json:"weekly_digest_hour"`
+}
+
+// UserSettingsInput defines model for UserSettingsInput.
+type UserSettingsInput struct {
+	ReminderLeadDays         []int  `json:"reminder_lead_days"`
+	Timezone                 string `json:"timezone"`
+	WeeklyDigestDay          int    `json:"weekly_digest_day"`
+	WeeklyDigestEnabled      bool   `json:"weekly_digest_enabled"`
+	WeeklyDigestHorizonWeeks int    `json:"weekly_digest_horizon_weeks"`
+	WeeklyDigestHour         int    `json:"weekly_digest_hour"`
+}
+
 // BadRequest defines model for BadRequest.
 type BadRequest = ProblemDetail
 
@@ -249,6 +280,9 @@ type CreateConferenceJSONRequestBody = ConferenceInput
 // UpdateConferenceJSONRequestBody defines body for UpdateConference for application/json ContentType.
 type UpdateConferenceJSONRequestBody = ConferenceInput
 
+// UpdateMySettingsJSONRequestBody defines body for UpdateMySettings for application/json ContentType.
+type UpdateMySettingsJSONRequestBody = UserSettingsInput
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// List conferences
@@ -269,12 +303,27 @@ type ServerInterface interface {
 	// Archive a conference
 	// (POST /api/v1/conferences/{id}/archive)
 	ArchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Unstar a conference
+	// (DELETE /api/v1/conferences/{id}/stars)
+	UnstarConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Star a conference
+	// (POST /api/v1/conferences/{id}/stars)
+	StarConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// Unarchive a conference
 	// (POST /api/v1/conferences/{id}/unarchive)
 	UnarchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// Current user profile
 	// (GET /api/v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// Get my reminder settings
+	// (GET /api/v1/me/settings)
+	GetMySettings(w http.ResponseWriter, r *http.Request)
+	// Update my reminder settings
+	// (PUT /api/v1/me/settings)
+	UpdateMySettings(w http.ResponseWriter, r *http.Request)
+	// List my starred conferences
+	// (GET /api/v1/me/stars)
+	ListMyStars(w http.ResponseWriter, r *http.Request)
 	// List all tags
 	// (GET /api/v1/tags)
 	ListTags(w http.ResponseWriter, r *http.Request)
@@ -326,6 +375,18 @@ func (_ Unimplemented) ArchiveConference(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Unstar a conference
+// (DELETE /api/v1/conferences/{id}/stars)
+func (_ Unimplemented) UnstarConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Star a conference
+// (POST /api/v1/conferences/{id}/stars)
+func (_ Unimplemented) StarConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Unarchive a conference
 // (POST /api/v1/conferences/{id}/unarchive)
 func (_ Unimplemented) UnarchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
@@ -335,6 +396,24 @@ func (_ Unimplemented) UnarchiveConference(w http.ResponseWriter, r *http.Reques
 // Current user profile
 // (GET /api/v1/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get my reminder settings
+// (GET /api/v1/me/settings)
+func (_ Unimplemented) GetMySettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update my reminder settings
+// (PUT /api/v1/me/settings)
+func (_ Unimplemented) UpdateMySettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List my starred conferences
+// (GET /api/v1/me/stars)
+func (_ Unimplemented) ListMyStars(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -579,6 +658,70 @@ func (siw *ServerInterfaceWrapper) ArchiveConference(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// UnstarConference operation middleware
+func (siw *ServerInterfaceWrapper) UnstarConference(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnstarConference(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StarConference operation middleware
+func (siw *ServerInterfaceWrapper) StarConference(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StarConference(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UnarchiveConference operation middleware
 func (siw *ServerInterfaceWrapper) UnarchiveConference(w http.ResponseWriter, r *http.Request) {
 
@@ -622,6 +765,66 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMySettings operation middleware
+func (siw *ServerInterfaceWrapper) GetMySettings(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMySettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMySettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMySettings(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMySettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyStars operation middleware
+func (siw *ServerInterfaceWrapper) ListMyStars(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyStars(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -817,10 +1020,25 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/conferences/{id}/archive", wrapper.ArchiveConference)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/conferences/{id}/stars", wrapper.UnstarConference)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/conferences/{id}/stars", wrapper.StarConference)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/conferences/{id}/unarchive", wrapper.UnarchiveConference)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/me", wrapper.GetMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/me/settings", wrapper.GetMySettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/me/settings", wrapper.UpdateMySettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/me/stars", wrapper.ListMyStars)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/tags", wrapper.ListTags)
@@ -1228,6 +1446,134 @@ func (response ArchiveConference404ApplicationProblemPlusJSONResponse) VisitArch
 	return err
 }
 
+type UnstarConferenceRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type UnstarConferenceResponseObject interface {
+	VisitUnstarConferenceResponse(w http.ResponseWriter) error
+}
+
+type UnstarConference204Response struct {
+}
+
+func (response UnstarConference204Response) VisitUnstarConferenceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UnstarConference401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UnstarConference401ApplicationProblemPlusJSONResponse) VisitUnstarConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnstarConference403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UnstarConference403ApplicationProblemPlusJSONResponse) VisitUnstarConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnstarConference404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response UnstarConference404ApplicationProblemPlusJSONResponse) VisitUnstarConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StarConferenceRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type StarConferenceResponseObject interface {
+	VisitStarConferenceResponse(w http.ResponseWriter) error
+}
+
+type StarConference204Response struct {
+}
+
+func (response StarConference204Response) VisitStarConferenceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type StarConference401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response StarConference401ApplicationProblemPlusJSONResponse) VisitStarConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StarConference403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response StarConference403ApplicationProblemPlusJSONResponse) VisitStarConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StarConference404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response StarConference404ApplicationProblemPlusJSONResponse) VisitStarConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type UnarchiveConferenceRequestObject struct {
 	Id openapi_types.UUID `json:"id"`
 }
@@ -1324,6 +1670,134 @@ type GetMe401ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetMe401ApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMySettingsRequestObject struct {
+}
+
+type GetMySettingsResponseObject interface {
+	VisitGetMySettingsResponse(w http.ResponseWriter) error
+}
+
+type GetMySettings200JSONResponse UserSettings
+
+func (response GetMySettings200JSONResponse) VisitGetMySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMySettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetMySettings401ApplicationProblemPlusJSONResponse) VisitGetMySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMySettingsRequestObject struct {
+	Body *UpdateMySettingsJSONRequestBody
+}
+
+type UpdateMySettingsResponseObject interface {
+	VisitUpdateMySettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateMySettings200JSONResponse UserSettings
+
+func (response UpdateMySettings200JSONResponse) VisitUpdateMySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMySettings400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateMySettings400ApplicationProblemPlusJSONResponse) VisitUpdateMySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMySettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateMySettings401ApplicationProblemPlusJSONResponse) VisitUpdateMySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyStarsRequestObject struct {
+}
+
+type ListMyStarsResponseObject interface {
+	VisitListMyStarsResponse(w http.ResponseWriter) error
+}
+
+type ListMyStars200JSONResponse []Conference
+
+func (response ListMyStars200JSONResponse) VisitListMyStarsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyStars401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListMyStars401ApplicationProblemPlusJSONResponse) VisitListMyStarsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1450,12 +1924,27 @@ type StrictServerInterface interface {
 	// Archive a conference
 	// (POST /api/v1/conferences/{id}/archive)
 	ArchiveConference(ctx context.Context, request ArchiveConferenceRequestObject) (ArchiveConferenceResponseObject, error)
+	// Unstar a conference
+	// (DELETE /api/v1/conferences/{id}/stars)
+	UnstarConference(ctx context.Context, request UnstarConferenceRequestObject) (UnstarConferenceResponseObject, error)
+	// Star a conference
+	// (POST /api/v1/conferences/{id}/stars)
+	StarConference(ctx context.Context, request StarConferenceRequestObject) (StarConferenceResponseObject, error)
 	// Unarchive a conference
 	// (POST /api/v1/conferences/{id}/unarchive)
 	UnarchiveConference(ctx context.Context, request UnarchiveConferenceRequestObject) (UnarchiveConferenceResponseObject, error)
 	// Current user profile
 	// (GET /api/v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// Get my reminder settings
+	// (GET /api/v1/me/settings)
+	GetMySettings(ctx context.Context, request GetMySettingsRequestObject) (GetMySettingsResponseObject, error)
+	// Update my reminder settings
+	// (PUT /api/v1/me/settings)
+	UpdateMySettings(ctx context.Context, request UpdateMySettingsRequestObject) (UpdateMySettingsResponseObject, error)
+	// List my starred conferences
+	// (GET /api/v1/me/stars)
+	ListMyStars(ctx context.Context, request ListMyStarsRequestObject) (ListMyStarsResponseObject, error)
 	// List all tags
 	// (GET /api/v1/tags)
 	ListTags(ctx context.Context, request ListTagsRequestObject) (ListTagsResponseObject, error)
@@ -1664,6 +2153,58 @@ func (sh *strictHandler) ArchiveConference(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// UnstarConference operation middleware
+func (sh *strictHandler) UnstarConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request UnstarConferenceRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnstarConference(ctx, request.(UnstarConferenceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnstarConference")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnstarConferenceResponseObject); ok {
+		if err := validResponse.VisitUnstarConferenceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StarConference operation middleware
+func (sh *strictHandler) StarConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request StarConferenceRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StarConference(ctx, request.(StarConferenceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StarConference")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StarConferenceResponseObject); ok {
+		if err := validResponse.VisitStarConferenceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // UnarchiveConference operation middleware
 func (sh *strictHandler) UnarchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
 	var request UnarchiveConferenceRequestObject
@@ -1707,6 +2248,85 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMySettings operation middleware
+func (sh *strictHandler) GetMySettings(w http.ResponseWriter, r *http.Request) {
+	var request GetMySettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMySettings(ctx, request.(GetMySettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMySettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMySettingsResponseObject); ok {
+		if err := validResponse.VisitGetMySettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateMySettings operation middleware
+func (sh *strictHandler) UpdateMySettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateMySettingsRequestObject
+
+	var body UpdateMySettingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateMySettings(ctx, request.(UpdateMySettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateMySettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateMySettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateMySettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMyStars operation middleware
+func (sh *strictHandler) ListMyStars(w http.ResponseWriter, r *http.Request) {
+	var request ListMyStarsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMyStars(ctx, request.(ListMyStarsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMyStars")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMyStarsResponseObject); ok {
+		if err := validResponse.VisitListMyStarsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

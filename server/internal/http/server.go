@@ -19,13 +19,15 @@ import (
 
 // Server implements api.StrictServerInterface.
 type Server struct {
-	logger  *slog.Logger
-	confSvc *service.ConferenceService
+	logger      *slog.Logger
+	confSvc     *service.ConferenceService
+	starSvc     *service.StarService
+	settingsSvc *service.SettingsService
 }
 
 // NewServer constructs a Server.
-func NewServer(logger *slog.Logger, confSvc *service.ConferenceService) *Server {
-	return &Server{logger: logger, confSvc: confSvc}
+func NewServer(logger *slog.Logger, confSvc *service.ConferenceService, starSvc *service.StarService, settingsSvc *service.SettingsService) *Server {
+	return &Server{logger: logger, confSvc: confSvc, starSvc: starSvc, settingsSvc: settingsSvc}
 }
 
 // NewRouter builds and returns the fully-wired chi.Router.
@@ -75,6 +77,11 @@ func NewRouter(s *Server, tm *auth.TokenManager, oidcHandler *auth.OIDCHandler) 
 			r.Put("/api/v1/conferences/{id}", w.UpdateConference)
 			r.Post("/api/v1/conferences/{id}/archive", w.ArchiveConference)
 			r.Post("/api/v1/conferences/{id}/unarchive", w.UnarchiveConference)
+			r.Post("/api/v1/conferences/{id}/stars", w.StarConference)
+			r.Delete("/api/v1/conferences/{id}/stars", w.UnstarConference)
+			r.Get("/api/v1/me/stars", si.ListMyStars)
+			r.Get("/api/v1/me/settings", si.GetMySettings)
+			r.Put("/api/v1/me/settings", si.UpdateMySettings)
 		})
 
 		// Admin-only operations.
@@ -276,6 +283,99 @@ func (s *Server) ListTracks(ctx context.Context, _ api.ListTracksRequestObject) 
 		return nil, err
 	}
 	return api.ListTracks200JSONResponse(tracks), nil
+}
+
+// StarConference implements api.StrictServerInterface.
+func (s *Server) StarConference(ctx context.Context, req api.StarConferenceRequestObject) (api.StarConferenceResponseObject, error) {
+	actorID, err := actorFromContext(ctx)
+	if err != nil {
+		return api.StarConference401ApplicationProblemPlusJSONResponse{
+			UnauthorizedApplicationProblemPlusJSONResponse: unauthorized(err.Error()),
+		}, nil
+	}
+	if err := s.starSvc.Star(ctx, actorID, uuid.UUID(req.Id)); err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			return api.StarConference404ApplicationProblemPlusJSONResponse{
+				NotFoundApplicationProblemPlusJSONResponse: notFound(),
+			}, nil
+		}
+		s.logger.ErrorContext(ctx, "star conference", "id", req.Id, "error", err)
+		return nil, err
+	}
+	return api.StarConference204Response{}, nil
+}
+
+// UnstarConference implements api.StrictServerInterface.
+func (s *Server) UnstarConference(ctx context.Context, req api.UnstarConferenceRequestObject) (api.UnstarConferenceResponseObject, error) {
+	actorID, err := actorFromContext(ctx)
+	if err != nil {
+		return api.UnstarConference401ApplicationProblemPlusJSONResponse{
+			UnauthorizedApplicationProblemPlusJSONResponse: unauthorized(err.Error()),
+		}, nil
+	}
+	if err := s.starSvc.Unstar(ctx, actorID, uuid.UUID(req.Id)); err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			return api.UnstarConference404ApplicationProblemPlusJSONResponse{
+				NotFoundApplicationProblemPlusJSONResponse: notFound(),
+			}, nil
+		}
+		s.logger.ErrorContext(ctx, "unstar conference", "id", req.Id, "error", err)
+		return nil, err
+	}
+	return api.UnstarConference204Response{}, nil
+}
+
+// ListMyStars implements api.StrictServerInterface.
+func (s *Server) ListMyStars(ctx context.Context, _ api.ListMyStarsRequestObject) (api.ListMyStarsResponseObject, error) {
+	actorID, err := actorFromContext(ctx)
+	if err != nil {
+		return api.ListMyStars401ApplicationProblemPlusJSONResponse{
+			UnauthorizedApplicationProblemPlusJSONResponse: unauthorized(err.Error()),
+		}, nil
+	}
+	confs, err := s.starSvc.ListStarred(ctx, actorID)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "list my stars", "error", err)
+		return nil, err
+	}
+	return api.ListMyStars200JSONResponse(confs), nil
+}
+
+// GetMySettings implements api.StrictServerInterface.
+func (s *Server) GetMySettings(ctx context.Context, _ api.GetMySettingsRequestObject) (api.GetMySettingsResponseObject, error) {
+	actorID, err := actorFromContext(ctx)
+	if err != nil {
+		return api.GetMySettings401ApplicationProblemPlusJSONResponse{
+			UnauthorizedApplicationProblemPlusJSONResponse: unauthorized(err.Error()),
+		}, nil
+	}
+	settings, err := s.settingsSvc.Get(ctx, actorID)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "get my settings", "error", err)
+		return nil, err
+	}
+	return api.GetMySettings200JSONResponse(settings), nil
+}
+
+// UpdateMySettings implements api.StrictServerInterface.
+func (s *Server) UpdateMySettings(ctx context.Context, req api.UpdateMySettingsRequestObject) (api.UpdateMySettingsResponseObject, error) {
+	actorID, err := actorFromContext(ctx)
+	if err != nil {
+		return api.UpdateMySettings401ApplicationProblemPlusJSONResponse{
+			UnauthorizedApplicationProblemPlusJSONResponse: unauthorized(err.Error()),
+		}, nil
+	}
+	settings, err := s.settingsSvc.Update(ctx, actorID, *req.Body)
+	if err != nil {
+		if errors.Is(err, service.ErrValidation) {
+			return api.UpdateMySettings400ApplicationProblemPlusJSONResponse{
+				BadRequestApplicationProblemPlusJSONResponse: badRequest(err.Error()),
+			}, nil
+		}
+		s.logger.ErrorContext(ctx, "update my settings", "error", err)
+		return nil, err
+	}
+	return api.UpdateMySettings200JSONResponse(settings), nil
 }
 
 var _ api.StrictServerInterface = (*Server)(nil)

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
@@ -26,6 +27,7 @@ const (
 // UserUpserter is implemented by repository.Queries.
 type UserUpserter interface {
 	UpsertUser(ctx context.Context, arg repository.UpsertUserParams) (repository.User, error)
+	UpsertUserSettings(ctx context.Context, userID uuid.UUID) error
 }
 
 // OIDCHandler handles /auth/login, /auth/callback, and /auth/logout.
@@ -161,6 +163,11 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("user upsert failed", "err", err)
 		http.Error(w, "user upsert failed", http.StatusInternalServerError)
+		return
+	}
+	if err := h.users.UpsertUserSettings(ctx, user.ID); err != nil {
+		h.logger.Error("user settings upsert failed", "err", err)
+		http.Error(w, "user settings error", http.StatusInternalServerError)
 		return
 	}
 

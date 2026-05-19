@@ -67,7 +67,9 @@ func run() int {
 	}
 
 	confSvc := service.NewConferenceService(pool)
-	srv := chihttp.NewServer(logger, confSvc)
+	starSvc := service.NewStarService(pool)
+	settingsSvc := service.NewSettingsService(pool)
+	srv := chihttp.NewServer(logger, confSvc, starSvc, settingsSvc)
 	router := chihttp.NewRouter(srv, tm, oidcHandler)
 
 	httpServer := &http.Server{

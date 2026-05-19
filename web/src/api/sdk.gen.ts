@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ArchiveConferenceData, ArchiveConferenceErrors, ArchiveConferenceResponses, CreateConferenceData, CreateConferenceErrors, CreateConferenceResponses, DeleteConferenceData, DeleteConferenceErrors, DeleteConferenceResponses, GetConferenceData, GetConferenceErrors, GetConferenceResponses, GetHealthData, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, ListConferencesData, ListConferencesResponses, ListTagsData, ListTagsErrors, ListTagsResponses, ListTracksData, ListTracksErrors, ListTracksResponses, UnarchiveConferenceData, UnarchiveConferenceErrors, UnarchiveConferenceResponses, UpdateConferenceData, UpdateConferenceErrors, UpdateConferenceResponses } from './types.gen';
+import type { ArchiveConferenceData, ArchiveConferenceErrors, ArchiveConferenceResponses, CreateConferenceData, CreateConferenceErrors, CreateConferenceResponses, DeleteConferenceData, DeleteConferenceErrors, DeleteConferenceResponses, GetConferenceData, GetConferenceErrors, GetConferenceResponses, GetHealthData, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetMySettingsData, GetMySettingsErrors, GetMySettingsResponses, ListConferencesData, ListConferencesResponses, ListMyStarsData, ListMyStarsErrors, ListMyStarsResponses, ListTagsData, ListTagsErrors, ListTagsResponses, ListTracksData, ListTracksErrors, ListTracksResponses, StarConferenceData, StarConferenceErrors, StarConferenceResponses, UnarchiveConferenceData, UnarchiveConferenceErrors, UnarchiveConferenceResponses, UnstarConferenceData, UnstarConferenceErrors, UnstarConferenceResponses, UpdateConferenceData, UpdateConferenceErrors, UpdateConferenceResponses, UpdateMySettingsData, UpdateMySettingsErrors, UpdateMySettingsResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -136,6 +136,85 @@ export const unarchiveConference = <ThrowOnError extends boolean = false>(option
         }],
     url: '/api/v1/conferences/{id}/unarchive',
     ...options
+});
+
+/**
+ * Unstar a conference
+ *
+ * Removes the authenticated user's star from this conference. Idempotent. Requires member role.
+ */
+export const unstarConference = <ThrowOnError extends boolean = false>(options: Options<UnstarConferenceData, ThrowOnError>) => (options.client ?? client).delete<UnstarConferenceResponses, UnstarConferenceErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/conferences/{id}/stars',
+    ...options
+});
+
+/**
+ * Star a conference
+ *
+ * Marks the authenticated user's intent to submit to this conference. Idempotent. Requires member role.
+ */
+export const starConference = <ThrowOnError extends boolean = false>(options: Options<StarConferenceData, ThrowOnError>) => (options.client ?? client).post<StarConferenceResponses, StarConferenceErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/conferences/{id}/stars',
+    ...options
+});
+
+/**
+ * List my starred conferences
+ *
+ * Returns all conferences the authenticated user has starred, sorted by next upcoming deadline.
+ */
+export const listMyStars = <ThrowOnError extends boolean = false>(options?: Options<ListMyStarsData, ThrowOnError>) => (options?.client ?? client).get<ListMyStarsResponses, ListMyStarsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/me/stars',
+    ...options
+});
+
+/**
+ * Get my reminder settings
+ *
+ * Returns the authenticated user's reminder and digest preferences.
+ */
+export const getMySettings = <ThrowOnError extends boolean = false>(options?: Options<GetMySettingsData, ThrowOnError>) => (options?.client ?? client).get<GetMySettingsResponses, GetMySettingsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/me/settings',
+    ...options
+});
+
+/**
+ * Update my reminder settings
+ *
+ * Replaces the authenticated user's reminder and digest preferences. Re-materializes pending reminders with the new lead times.
+ */
+export const updateMySettings = <ThrowOnError extends boolean = false>(options: Options<UpdateMySettingsData, ThrowOnError>) => (options.client ?? client).put<UpdateMySettingsResponses, UpdateMySettingsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/me/settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
