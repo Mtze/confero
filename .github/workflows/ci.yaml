@@ -188,6 +188,10 @@ jobs:
           go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
             -config oapi-codegen.yaml ../api/openapi.yaml
 
+      - name: Regenerate sqlc queries
+        working-directory: server
+        run: go run github.com/sqlc-dev/sqlc/cmd/sqlc generate
+
       - name: Regenerate TypeScript client
         working-directory: web
         run: node_modules/.bin/openapi-ts --config openapi-ts.config.ts
