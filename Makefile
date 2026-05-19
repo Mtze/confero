@@ -42,7 +42,7 @@ generate-sqlc: ## Generate repository code from SQL queries (requires sqlc)
 .PHONY: generate-ts-client
 generate-ts-client: ## Generate TypeScript client from api/openapi.yaml
 	@echo "  [ts]  openapi-ts ..."
-	cd $(WEB_DIR) && node_modules/.bin/openapi-ts --config openapi-ts.config.ts
+	cd $(WEB_DIR) && node_modules/.bin/openapi-ts
 
 # --------------------------------------------------------------------------- #
 # Linting                                                                      #

@@ -194,7 +194,7 @@ jobs:
 
       - name: Regenerate TypeScript client
         working-directory: web
-        run: node_modules/.bin/openapi-ts --config openapi-ts.config.ts
+        run: node_modules/.bin/openapi-ts
 
       - name: Fail if generated code drifted
         run: |
