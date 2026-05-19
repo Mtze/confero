@@ -10,4 +10,34 @@ info:
 servers:
   - url: /
     description: Same-origin (proxied by ingress in production)
-paths: {}
+
+tags:
+  - name: infra
+    description: Infrastructure endpoints (health, readiness, metrics)
+
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: Liveness check
+      description: Returns 200 when the process is running. Used as the Kubernetes liveness probe.
+      tags: [infra]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
