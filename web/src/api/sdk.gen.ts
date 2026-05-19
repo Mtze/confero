@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetHealthData, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses } from './types.gen';
+import type { ArchiveConferenceData, ArchiveConferenceErrors, ArchiveConferenceResponses, CreateConferenceData, CreateConferenceErrors, CreateConferenceResponses, DeleteConferenceData, DeleteConferenceErrors, DeleteConferenceResponses, GetConferenceData, GetConferenceErrors, GetConferenceResponses, GetHealthData, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, ListConferencesData, ListConferencesResponses, ListTagsData, ListTagsErrors, ListTagsResponses, ListTracksData, ListTracksErrors, ListTracksResponses, UnarchiveConferenceData, UnarchiveConferenceErrors, UnarchiveConferenceResponses, UpdateConferenceData, UpdateConferenceErrors, UpdateConferenceResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -37,5 +37,133 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
             type: 'apiKey'
         }],
     url: '/api/v1/me',
+    ...options
+});
+
+/**
+ * List conferences
+ *
+ * Returns the conference catalog. Public endpoint — no authentication required. By default, archived conferences are excluded.
+ *
+ */
+export const listConferences = <ThrowOnError extends boolean = false>(options?: Options<ListConferencesData, ThrowOnError>) => (options?.client ?? client).get<ListConferencesResponses, unknown, ThrowOnError>({ url: '/api/v1/conferences', ...options });
+
+/**
+ * Create a conference
+ *
+ * Creates a new conference. Requires member role.
+ */
+export const createConference = <ThrowOnError extends boolean = false>(options: Options<CreateConferenceData, ThrowOnError>) => (options.client ?? client).post<CreateConferenceResponses, CreateConferenceErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/conferences',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a conference
+ *
+ * Permanently deletes a conference and all associated data. Requires admin role.
+ */
+export const deleteConference = <ThrowOnError extends boolean = false>(options: Options<DeleteConferenceData, ThrowOnError>) => (options.client ?? client).delete<DeleteConferenceResponses, DeleteConferenceErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/conferences/{id}',
+    ...options
+});
+
+/**
+ * Get a conference
+ *
+ * Returns a single conference by ID. Public endpoint.
+ */
+export const getConference = <ThrowOnError extends boolean = false>(options: Options<GetConferenceData, ThrowOnError>) => (options.client ?? client).get<GetConferenceResponses, GetConferenceErrors, ThrowOnError>({ url: '/api/v1/conferences/{id}', ...options });
+
+/**
+ * Update a conference
+ *
+ * Replaces all editable fields of a conference. Requires member role.
+ */
+export const updateConference = <ThrowOnError extends boolean = false>(options: Options<UpdateConferenceData, ThrowOnError>) => (options.client ?? client).put<UpdateConferenceResponses, UpdateConferenceErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/conferences/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Archive a conference
+ *
+ * Sets archived_at on the conference. Idempotent. Requires member role.
+ */
+export const archiveConference = <ThrowOnError extends boolean = false>(options: Options<ArchiveConferenceData, ThrowOnError>) => (options.client ?? client).post<ArchiveConferenceResponses, ArchiveConferenceErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/conferences/{id}/archive',
+    ...options
+});
+
+/**
+ * Unarchive a conference
+ *
+ * Clears archived_at on the conference. Idempotent. Requires member role.
+ */
+export const unarchiveConference = <ThrowOnError extends boolean = false>(options: Options<UnarchiveConferenceData, ThrowOnError>) => (options.client ?? client).post<UnarchiveConferenceResponses, UnarchiveConferenceErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/conferences/{id}/unarchive',
+    ...options
+});
+
+/**
+ * List all tags
+ *
+ * Returns all tags for use in the conference form autocomplete. Requires authentication.
+ */
+export const listTags = <ThrowOnError extends boolean = false>(options?: Options<ListTagsData, ThrowOnError>) => (options?.client ?? client).get<ListTagsResponses, ListTagsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/tags',
+    ...options
+});
+
+/**
+ * List all track types
+ *
+ * Returns the closed set of submission track types. Requires authentication.
+ */
+export const listTracks = <ThrowOnError extends boolean = false>(options?: Options<ListTracksData, ThrowOnError>) => (options?.client ?? client).get<ListTracksResponses, ListTracksErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/tracks',
     ...options
 });

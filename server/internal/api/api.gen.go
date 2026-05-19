@@ -7,16 +7,73 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
 	SessionCookieScopes sessionCookieContextKey = "sessionCookie.Scopes"
 )
+
+// Defines values for ConferenceCoreRank.
+const (
+	ConferenceCoreRankA        ConferenceCoreRank = "A*"
+	ConferenceCoreRankA1       ConferenceCoreRank = "A"
+	ConferenceCoreRankB        ConferenceCoreRank = "B"
+	ConferenceCoreRankC        ConferenceCoreRank = "C"
+	ConferenceCoreRankUnranked ConferenceCoreRank = "Unranked"
+)
+
+// Valid indicates whether the value is a known member of the ConferenceCoreRank enum.
+func (e ConferenceCoreRank) Valid() bool {
+	switch e {
+	case ConferenceCoreRankA:
+		return true
+	case ConferenceCoreRankA1:
+		return true
+	case ConferenceCoreRankB:
+		return true
+	case ConferenceCoreRankC:
+		return true
+	case ConferenceCoreRankUnranked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConferenceInputCoreRank.
+const (
+	ConferenceInputCoreRankA        ConferenceInputCoreRank = "A*"
+	ConferenceInputCoreRankA1       ConferenceInputCoreRank = "A"
+	ConferenceInputCoreRankB        ConferenceInputCoreRank = "B"
+	ConferenceInputCoreRankC        ConferenceInputCoreRank = "C"
+	ConferenceInputCoreRankUnranked ConferenceInputCoreRank = "Unranked"
+)
+
+// Valid indicates whether the value is a known member of the ConferenceInputCoreRank enum.
+func (e ConferenceInputCoreRank) Valid() bool {
+	switch e {
+	case ConferenceInputCoreRankA:
+		return true
+	case ConferenceInputCoreRankA1:
+		return true
+	case ConferenceInputCoreRankB:
+		return true
+	case ConferenceInputCoreRankC:
+		return true
+	case ConferenceInputCoreRankUnranked:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for CurrentUserRoles.
 const (
@@ -51,6 +108,68 @@ func (e HealthStatusStatus) Valid() bool {
 	}
 }
 
+// Conference defines model for Conference.
+type Conference struct {
+	AbstractDeadline  *time.Time          `json:"abstract_deadline,omitempty"`
+	AcceptanceRatePct *float32            `json:"acceptance_rate_pct,omitempty"`
+	Acronym           string              `json:"acronym"`
+	ArchivedAt        *time.Time          `json:"archived_at,omitempty"`
+	CameraReadyDate   *time.Time          `json:"camera_ready_date,omitempty"`
+	CfpUrl            *string             `json:"cfp_url,omitempty"`
+	CoreRank          *ConferenceCoreRank `json:"core_rank,omitempty"`
+	CreatedAt         time.Time           `json:"created_at"`
+	CreatedBy         *openapi_types.UUID `json:"created_by,omitempty"`
+	DblpKey           *string             `json:"dblp_key,omitempty"`
+	EventEndDate      *openapi_types.Date `json:"event_end_date,omitempty"`
+	EventStartDate    *openapi_types.Date `json:"event_start_date,omitempty"`
+	H5Index           *int                `json:"h5_index,omitempty"`
+	Id                openapi_types.UUID  `json:"id"`
+	Location          string              `json:"location"`
+	Name              string              `json:"name"`
+	Notes             *string             `json:"notes,omitempty"`
+	NotificationDate  *time.Time          `json:"notification_date,omitempty"`
+	PrimaryDeadline   *time.Time          `json:"primary_deadline,omitempty"`
+	Tags              []Tag               `json:"tags"`
+	Tracks            []Track             `json:"tracks"`
+	UpdatedAt         time.Time           `json:"updated_at"`
+	UpdatedBy         *openapi_types.UUID `json:"updated_by,omitempty"`
+	WebsiteUrl        *string             `json:"website_url,omitempty"`
+	Year              int                 `json:"year"`
+}
+
+// ConferenceCoreRank defines model for Conference.CoreRank.
+type ConferenceCoreRank string
+
+// ConferenceInput defines model for ConferenceInput.
+type ConferenceInput struct {
+	AbstractDeadline  *time.Time               `json:"abstract_deadline,omitempty"`
+	AcceptanceRatePct *float32                 `json:"acceptance_rate_pct,omitempty"`
+	Acronym           string                   `json:"acronym"`
+	CameraReadyDate   *time.Time               `json:"camera_ready_date,omitempty"`
+	CfpUrl            *string                  `json:"cfp_url,omitempty"`
+	CoreRank          *ConferenceInputCoreRank `json:"core_rank,omitempty"`
+	DblpKey           *string                  `json:"dblp_key,omitempty"`
+	EventEndDate      *openapi_types.Date      `json:"event_end_date,omitempty"`
+	EventStartDate    *openapi_types.Date      `json:"event_start_date,omitempty"`
+	H5Index           *int                     `json:"h5_index,omitempty"`
+	Location          string                   `json:"location"`
+	Name              string                   `json:"name"`
+	Notes             *string                  `json:"notes,omitempty"`
+	NotificationDate  *time.Time               `json:"notification_date,omitempty"`
+	PrimaryDeadline   *time.Time               `json:"primary_deadline,omitempty"`
+
+	// TagSlugs Tag slugs to associate with the conference. Unknown slugs cause a new tag to be created using the slug as both slug and name.
+	TagSlugs *[]string `json:"tag_slugs,omitempty"`
+
+	// TrackCodes Track codes to associate with the conference.
+	TrackCodes *[]string `json:"track_codes,omitempty"`
+	WebsiteUrl *string   `json:"website_url,omitempty"`
+	Year       int       `json:"year"`
+}
+
+// ConferenceInputCoreRank defines model for ConferenceInput.CoreRank.
+type ConferenceInputCoreRank string
+
 // CurrentUser defines model for CurrentUser.
 type CurrentUser struct {
 	Email openapi_types.Email `json:"email"`
@@ -77,17 +196,91 @@ type ProblemDetail struct {
 	Title  *string `json:"title,omitempty"`
 }
 
+// Tag defines model for Tag.
+type Tag struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+	Slug string             `json:"slug"`
+}
+
+// Track defines model for Track.
+type Track struct {
+	Code        string `json:"code"`
+	DisplayName string `json:"display_name"`
+	SortOrder   int    `json:"sort_order"`
+}
+
+// BadRequest defines model for BadRequest.
+type BadRequest = ProblemDetail
+
+// Conflict defines model for Conflict.
+type Conflict = ProblemDetail
+
+// Forbidden defines model for Forbidden.
+type Forbidden = ProblemDetail
+
+// NotFound defines model for NotFound.
+type NotFound = ProblemDetail
+
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = ProblemDetail
 
 // sessionCookieContextKey is the context key for sessionCookie security scheme
 type sessionCookieContextKey string
 
+// ListConferencesParams defines parameters for ListConferences.
+type ListConferencesParams struct {
+	// Archived Include archived conferences when true.
+	Archived *bool `form:"archived,omitempty" json:"archived,omitempty"`
+
+	// Tag Filter by tag slug.
+	Tag *string `form:"tag,omitempty" json:"tag,omitempty"`
+
+	// Track Filter by track code.
+	Track *string `form:"track,omitempty" json:"track,omitempty"`
+
+	// Q Free-text search on name and acronym (case-insensitive).
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// CreateConferenceJSONRequestBody defines body for CreateConference for application/json ContentType.
+type CreateConferenceJSONRequestBody = ConferenceInput
+
+// UpdateConferenceJSONRequestBody defines body for UpdateConference for application/json ContentType.
+type UpdateConferenceJSONRequestBody = ConferenceInput
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// List conferences
+	// (GET /api/v1/conferences)
+	ListConferences(w http.ResponseWriter, r *http.Request, params ListConferencesParams)
+	// Create a conference
+	// (POST /api/v1/conferences)
+	CreateConference(w http.ResponseWriter, r *http.Request)
+	// Delete a conference
+	// (DELETE /api/v1/conferences/{id})
+	DeleteConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Get a conference
+	// (GET /api/v1/conferences/{id})
+	GetConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Update a conference
+	// (PUT /api/v1/conferences/{id})
+	UpdateConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Archive a conference
+	// (POST /api/v1/conferences/{id}/archive)
+	ArchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Unarchive a conference
+	// (POST /api/v1/conferences/{id}/unarchive)
+	UnarchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// Current user profile
 	// (GET /api/v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// List all tags
+	// (GET /api/v1/tags)
+	ListTags(w http.ResponseWriter, r *http.Request)
+	// List all track types
+	// (GET /api/v1/tracks)
+	ListTracks(w http.ResponseWriter, r *http.Request)
 	// Liveness check
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -97,9 +290,63 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// List conferences
+// (GET /api/v1/conferences)
+func (_ Unimplemented) ListConferences(w http.ResponseWriter, r *http.Request, params ListConferencesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a conference
+// (POST /api/v1/conferences)
+func (_ Unimplemented) CreateConference(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete a conference
+// (DELETE /api/v1/conferences/{id})
+func (_ Unimplemented) DeleteConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get a conference
+// (GET /api/v1/conferences/{id})
+func (_ Unimplemented) GetConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a conference
+// (PUT /api/v1/conferences/{id})
+func (_ Unimplemented) UpdateConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Archive a conference
+// (POST /api/v1/conferences/{id}/archive)
+func (_ Unimplemented) ArchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Unarchive a conference
+// (POST /api/v1/conferences/{id}/unarchive)
+func (_ Unimplemented) UnarchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Current user profile
 // (GET /api/v1/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List all tags
+// (GET /api/v1/tags)
+func (_ Unimplemented) ListTags(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List all track types
+// (GET /api/v1/tracks)
+func (_ Unimplemented) ListTracks(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -118,6 +365,252 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// ListConferences operation middleware
+func (siw *ServerInterfaceWrapper) ListConferences(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListConferencesParams
+
+	// ------------- Optional query parameter "archived" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "archived", r.URL.Query(), &params.Archived, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "archived"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archived", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "tag" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tag", r.URL.Query(), &params.Tag, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "tag"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tag", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "track" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "track", r.URL.Query(), &params.Track, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "track"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "track", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListConferences(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateConference operation middleware
+func (siw *ServerInterfaceWrapper) CreateConference(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateConference(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteConference operation middleware
+func (siw *ServerInterfaceWrapper) DeleteConference(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteConference(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetConference operation middleware
+func (siw *ServerInterfaceWrapper) GetConference(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetConference(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateConference operation middleware
+func (siw *ServerInterfaceWrapper) UpdateConference(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateConference(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ArchiveConference operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveConference(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveConference(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnarchiveConference operation middleware
+func (siw *ServerInterfaceWrapper) UnarchiveConference(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnarchiveConference(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
 
@@ -129,6 +622,46 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTags operation middleware
+func (siw *ServerInterfaceWrapper) ListTags(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTags(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTracks operation middleware
+func (siw *ServerInterfaceWrapper) ListTracks(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTracks(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -266,7 +799,34 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/conferences", wrapper.ListConferences)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/conferences", wrapper.CreateConference)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/conferences/{id}", wrapper.DeleteConference)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/conferences/{id}", wrapper.GetConference)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/conferences/{id}", wrapper.UpdateConference)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/conferences/{id}/archive", wrapper.ArchiveConference)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/conferences/{id}/unarchive", wrapper.UnarchiveConference)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/me", wrapper.GetMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/tags", wrapper.ListTags)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/tracks", wrapper.ListTracks)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthz", wrapper.GetHealth)
@@ -275,7 +835,468 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	return r
 }
 
+type BadRequestApplicationProblemPlusJSONResponse ProblemDetail
+
+type ConflictApplicationProblemPlusJSONResponse ProblemDetail
+
+type ForbiddenApplicationProblemPlusJSONResponse ProblemDetail
+
+type NotFoundApplicationProblemPlusJSONResponse ProblemDetail
+
 type UnauthorizedApplicationProblemPlusJSONResponse ProblemDetail
+
+type ListConferencesRequestObject struct {
+	Params ListConferencesParams
+}
+
+type ListConferencesResponseObject interface {
+	VisitListConferencesResponse(w http.ResponseWriter) error
+}
+
+type ListConferences200JSONResponse []Conference
+
+func (response ListConferences200JSONResponse) VisitListConferencesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateConferenceRequestObject struct {
+	Body *CreateConferenceJSONRequestBody
+}
+
+type CreateConferenceResponseObject interface {
+	VisitCreateConferenceResponse(w http.ResponseWriter) error
+}
+
+type CreateConference201JSONResponse Conference
+
+func (response CreateConference201JSONResponse) VisitCreateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateConference400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CreateConference400ApplicationProblemPlusJSONResponse) VisitCreateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateConference401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateConference401ApplicationProblemPlusJSONResponse) VisitCreateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateConference403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CreateConference403ApplicationProblemPlusJSONResponse) VisitCreateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateConference409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CreateConference409ApplicationProblemPlusJSONResponse) VisitCreateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteConferenceRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type DeleteConferenceResponseObject interface {
+	VisitDeleteConferenceResponse(w http.ResponseWriter) error
+}
+
+type DeleteConference204Response struct {
+}
+
+func (response DeleteConference204Response) VisitDeleteConferenceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteConference401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteConference401ApplicationProblemPlusJSONResponse) VisitDeleteConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteConference403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteConference403ApplicationProblemPlusJSONResponse) VisitDeleteConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteConference404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteConference404ApplicationProblemPlusJSONResponse) VisitDeleteConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetConferenceRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type GetConferenceResponseObject interface {
+	VisitGetConferenceResponse(w http.ResponseWriter) error
+}
+
+type GetConference200JSONResponse Conference
+
+func (response GetConference200JSONResponse) VisitGetConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetConference404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetConference404ApplicationProblemPlusJSONResponse) VisitGetConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConferenceRequestObject struct {
+	Id   openapi_types.UUID `json:"id"`
+	Body *UpdateConferenceJSONRequestBody
+}
+
+type UpdateConferenceResponseObject interface {
+	VisitUpdateConferenceResponse(w http.ResponseWriter) error
+}
+
+type UpdateConference200JSONResponse Conference
+
+func (response UpdateConference200JSONResponse) VisitUpdateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConference400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateConference400ApplicationProblemPlusJSONResponse) VisitUpdateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConference401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateConference401ApplicationProblemPlusJSONResponse) VisitUpdateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConference403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateConference403ApplicationProblemPlusJSONResponse) VisitUpdateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConference404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateConference404ApplicationProblemPlusJSONResponse) VisitUpdateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConference409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateConference409ApplicationProblemPlusJSONResponse) VisitUpdateConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveConferenceRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type ArchiveConferenceResponseObject interface {
+	VisitArchiveConferenceResponse(w http.ResponseWriter) error
+}
+
+type ArchiveConference200JSONResponse Conference
+
+func (response ArchiveConference200JSONResponse) VisitArchiveConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveConference401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ArchiveConference401ApplicationProblemPlusJSONResponse) VisitArchiveConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveConference403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ArchiveConference403ApplicationProblemPlusJSONResponse) VisitArchiveConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveConference404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ArchiveConference404ApplicationProblemPlusJSONResponse) VisitArchiveConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnarchiveConferenceRequestObject struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+type UnarchiveConferenceResponseObject interface {
+	VisitUnarchiveConferenceResponse(w http.ResponseWriter) error
+}
+
+type UnarchiveConference200JSONResponse Conference
+
+func (response UnarchiveConference200JSONResponse) VisitUnarchiveConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnarchiveConference401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UnarchiveConference401ApplicationProblemPlusJSONResponse) VisitUnarchiveConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnarchiveConference403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UnarchiveConference403ApplicationProblemPlusJSONResponse) VisitUnarchiveConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnarchiveConference404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response UnarchiveConference404ApplicationProblemPlusJSONResponse) VisitUnarchiveConferenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type GetMeRequestObject struct {
 }
@@ -314,6 +1335,80 @@ func (response GetMe401ApplicationProblemPlusJSONResponse) VisitGetMeResponse(w 
 	return err
 }
 
+type ListTagsRequestObject struct {
+}
+
+type ListTagsResponseObject interface {
+	VisitListTagsResponse(w http.ResponseWriter) error
+}
+
+type ListTags200JSONResponse []Tag
+
+func (response ListTags200JSONResponse) VisitListTagsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTags401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListTags401ApplicationProblemPlusJSONResponse) VisitListTagsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTracksRequestObject struct {
+}
+
+type ListTracksResponseObject interface {
+	VisitListTracksResponse(w http.ResponseWriter) error
+}
+
+type ListTracks200JSONResponse []Track
+
+func (response ListTracks200JSONResponse) VisitListTracksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTracks401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListTracks401ApplicationProblemPlusJSONResponse) VisitListTracksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthRequestObject struct {
 }
 
@@ -337,9 +1432,36 @@ func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseW
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// List conferences
+	// (GET /api/v1/conferences)
+	ListConferences(ctx context.Context, request ListConferencesRequestObject) (ListConferencesResponseObject, error)
+	// Create a conference
+	// (POST /api/v1/conferences)
+	CreateConference(ctx context.Context, request CreateConferenceRequestObject) (CreateConferenceResponseObject, error)
+	// Delete a conference
+	// (DELETE /api/v1/conferences/{id})
+	DeleteConference(ctx context.Context, request DeleteConferenceRequestObject) (DeleteConferenceResponseObject, error)
+	// Get a conference
+	// (GET /api/v1/conferences/{id})
+	GetConference(ctx context.Context, request GetConferenceRequestObject) (GetConferenceResponseObject, error)
+	// Update a conference
+	// (PUT /api/v1/conferences/{id})
+	UpdateConference(ctx context.Context, request UpdateConferenceRequestObject) (UpdateConferenceResponseObject, error)
+	// Archive a conference
+	// (POST /api/v1/conferences/{id}/archive)
+	ArchiveConference(ctx context.Context, request ArchiveConferenceRequestObject) (ArchiveConferenceResponseObject, error)
+	// Unarchive a conference
+	// (POST /api/v1/conferences/{id}/unarchive)
+	UnarchiveConference(ctx context.Context, request UnarchiveConferenceRequestObject) (UnarchiveConferenceResponseObject, error)
 	// Current user profile
 	// (GET /api/v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// List all tags
+	// (GET /api/v1/tags)
+	ListTags(ctx context.Context, request ListTagsRequestObject) (ListTagsResponseObject, error)
+	// List all track types
+	// (GET /api/v1/tracks)
+	ListTracks(ctx context.Context, request ListTracksRequestObject) (ListTracksResponseObject, error)
 	// Liveness check
 	// (GET /healthz)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -374,6 +1496,200 @@ type strictHandler struct {
 	options     StrictHTTPServerOptions
 }
 
+// ListConferences operation middleware
+func (sh *strictHandler) ListConferences(w http.ResponseWriter, r *http.Request, params ListConferencesParams) {
+	var request ListConferencesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListConferences(ctx, request.(ListConferencesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListConferences")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListConferencesResponseObject); ok {
+		if err := validResponse.VisitListConferencesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateConference operation middleware
+func (sh *strictHandler) CreateConference(w http.ResponseWriter, r *http.Request) {
+	var request CreateConferenceRequestObject
+
+	var body CreateConferenceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateConference(ctx, request.(CreateConferenceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateConference")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateConferenceResponseObject); ok {
+		if err := validResponse.VisitCreateConferenceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteConference operation middleware
+func (sh *strictHandler) DeleteConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request DeleteConferenceRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteConference(ctx, request.(DeleteConferenceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteConference")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteConferenceResponseObject); ok {
+		if err := validResponse.VisitDeleteConferenceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetConference operation middleware
+func (sh *strictHandler) GetConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request GetConferenceRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetConference(ctx, request.(GetConferenceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetConference")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetConferenceResponseObject); ok {
+		if err := validResponse.VisitGetConferenceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateConference operation middleware
+func (sh *strictHandler) UpdateConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request UpdateConferenceRequestObject
+
+	request.Id = id
+
+	var body UpdateConferenceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateConference(ctx, request.(UpdateConferenceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateConference")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateConferenceResponseObject); ok {
+		if err := validResponse.VisitUpdateConferenceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ArchiveConference operation middleware
+func (sh *strictHandler) ArchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request ArchiveConferenceRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ArchiveConference(ctx, request.(ArchiveConferenceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ArchiveConference")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ArchiveConferenceResponseObject); ok {
+		if err := validResponse.VisitArchiveConferenceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnarchiveConference operation middleware
+func (sh *strictHandler) UnarchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	var request UnarchiveConferenceRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnarchiveConference(ctx, request.(UnarchiveConferenceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnarchiveConference")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnarchiveConferenceResponseObject); ok {
+		if err := validResponse.VisitUnarchiveConferenceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetMe operation middleware
 func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	var request GetMeRequestObject
@@ -391,6 +1707,54 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTags operation middleware
+func (sh *strictHandler) ListTags(w http.ResponseWriter, r *http.Request) {
+	var request ListTagsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTags(ctx, request.(ListTagsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTags")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTagsResponseObject); ok {
+		if err := validResponse.VisitListTagsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTracks operation middleware
+func (sh *strictHandler) ListTracks(w http.ResponseWriter, r *http.Request) {
+	var request ListTracksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTracks(ctx, request.(ListTracksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTracks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTracksResponseObject); ok {
+		if err := validResponse.VisitListTracksResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

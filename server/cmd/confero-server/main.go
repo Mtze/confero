@@ -13,6 +13,7 @@ import (
 	"confero/internal/database"
 	chihttp "confero/internal/http"
 	"confero/internal/repository"
+	"confero/internal/service"
 	"confero/internal/version"
 )
 
@@ -65,7 +66,8 @@ func run() int {
 		return 1
 	}
 
-	srv := chihttp.NewServer(logger)
+	confSvc := service.NewConferenceService(pool)
+	srv := chihttp.NewServer(logger, confSvc)
 	router := chihttp.NewRouter(srv, tm, oidcHandler)
 
 	httpServer := &http.Server{

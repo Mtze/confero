@@ -15,6 +15,75 @@ export type CurrentUser = {
     roles: Array<'member' | 'admin'>;
 };
 
+export type Conference = {
+    id: string;
+    name: string;
+    acronym: string;
+    year: number;
+    location: string;
+    website_url?: string | null;
+    cfp_url?: string | null;
+    primary_deadline?: string | null;
+    abstract_deadline?: string | null;
+    notification_date?: string | null;
+    camera_ready_date?: string | null;
+    event_start_date?: string | null;
+    event_end_date?: string | null;
+    core_rank?: 'A*' | 'A' | 'B' | 'C' | 'Unranked';
+    h5_index?: number | null;
+    acceptance_rate_pct?: number | null;
+    dblp_key?: string | null;
+    notes?: string | null;
+    archived_at?: string | null;
+    created_by?: string | null;
+    updated_by?: string | null;
+    created_at: string;
+    updated_at: string;
+    tags: Array<Tag>;
+    tracks: Array<Track>;
+};
+
+export type ConferenceInput = {
+    name: string;
+    acronym: string;
+    year: number;
+    location: string;
+    website_url?: string | null;
+    cfp_url?: string | null;
+    primary_deadline?: string | null;
+    abstract_deadline?: string | null;
+    notification_date?: string | null;
+    camera_ready_date?: string | null;
+    event_start_date?: string | null;
+    event_end_date?: string | null;
+    core_rank?: 'A*' | 'A' | 'B' | 'C' | 'Unranked';
+    h5_index?: number | null;
+    acceptance_rate_pct?: number | null;
+    dblp_key?: string | null;
+    notes?: string | null;
+    /**
+     * Tag slugs to associate with the conference. Unknown slugs cause a new tag to be created using the slug as both slug and name.
+     *
+     */
+    tag_slugs?: Array<string>;
+    /**
+     * Track codes to associate with the conference.
+     */
+    track_codes?: Array<string>;
+};
+
+export type Tag = {
+    id: string;
+    slug: string;
+    name: string;
+};
+
+export type Track = {
+    code: string;
+    display_name: string;
+    sort_order: number;
+};
+
 export type ProblemDetail = {
     title?: string;
     status?: number;
@@ -61,3 +130,298 @@ export type GetMeResponses = {
 };
 
 export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
+
+export type ListConferencesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Include archived conferences when true.
+         */
+        archived?: boolean;
+        /**
+         * Filter by tag slug.
+         */
+        tag?: string;
+        /**
+         * Filter by track code.
+         */
+        track?: string;
+        /**
+         * Free-text search on name and acronym (case-insensitive).
+         */
+        q?: string;
+    };
+    url: '/api/v1/conferences';
+};
+
+export type ListConferencesResponses = {
+    /**
+     * List of conferences
+     */
+    200: Array<Conference>;
+};
+
+export type ListConferencesResponse = ListConferencesResponses[keyof ListConferencesResponses];
+
+export type CreateConferenceData = {
+    body: ConferenceInput;
+    path?: never;
+    query?: never;
+    url: '/api/v1/conferences';
+};
+
+export type CreateConferenceErrors = {
+    /**
+     * Request body failed validation
+     */
+    400: ProblemDetail;
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+    /**
+     * Insufficient permissions for this operation
+     */
+    403: ProblemDetail;
+    /**
+     * Resource already exists (e.g. duplicate acronym+year)
+     */
+    409: ProblemDetail;
+};
+
+export type CreateConferenceError = CreateConferenceErrors[keyof CreateConferenceErrors];
+
+export type CreateConferenceResponses = {
+    /**
+     * Conference created
+     */
+    201: Conference;
+};
+
+export type CreateConferenceResponse = CreateConferenceResponses[keyof CreateConferenceResponses];
+
+export type DeleteConferenceData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conferences/{id}';
+};
+
+export type DeleteConferenceErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+    /**
+     * Insufficient permissions for this operation
+     */
+    403: ProblemDetail;
+    /**
+     * Resource not found
+     */
+    404: ProblemDetail;
+};
+
+export type DeleteConferenceError = DeleteConferenceErrors[keyof DeleteConferenceErrors];
+
+export type DeleteConferenceResponses = {
+    /**
+     * Conference deleted
+     */
+    204: void;
+};
+
+export type DeleteConferenceResponse = DeleteConferenceResponses[keyof DeleteConferenceResponses];
+
+export type GetConferenceData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conferences/{id}';
+};
+
+export type GetConferenceErrors = {
+    /**
+     * Resource not found
+     */
+    404: ProblemDetail;
+};
+
+export type GetConferenceError = GetConferenceErrors[keyof GetConferenceErrors];
+
+export type GetConferenceResponses = {
+    /**
+     * Conference found
+     */
+    200: Conference;
+};
+
+export type GetConferenceResponse = GetConferenceResponses[keyof GetConferenceResponses];
+
+export type UpdateConferenceData = {
+    body: ConferenceInput;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conferences/{id}';
+};
+
+export type UpdateConferenceErrors = {
+    /**
+     * Request body failed validation
+     */
+    400: ProblemDetail;
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+    /**
+     * Insufficient permissions for this operation
+     */
+    403: ProblemDetail;
+    /**
+     * Resource not found
+     */
+    404: ProblemDetail;
+    /**
+     * Resource already exists (e.g. duplicate acronym+year)
+     */
+    409: ProblemDetail;
+};
+
+export type UpdateConferenceError = UpdateConferenceErrors[keyof UpdateConferenceErrors];
+
+export type UpdateConferenceResponses = {
+    /**
+     * Conference updated
+     */
+    200: Conference;
+};
+
+export type UpdateConferenceResponse = UpdateConferenceResponses[keyof UpdateConferenceResponses];
+
+export type ArchiveConferenceData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conferences/{id}/archive';
+};
+
+export type ArchiveConferenceErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+    /**
+     * Insufficient permissions for this operation
+     */
+    403: ProblemDetail;
+    /**
+     * Resource not found
+     */
+    404: ProblemDetail;
+};
+
+export type ArchiveConferenceError = ArchiveConferenceErrors[keyof ArchiveConferenceErrors];
+
+export type ArchiveConferenceResponses = {
+    /**
+     * Conference archived (or was already archived)
+     */
+    200: Conference;
+};
+
+export type ArchiveConferenceResponse = ArchiveConferenceResponses[keyof ArchiveConferenceResponses];
+
+export type UnarchiveConferenceData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conferences/{id}/unarchive';
+};
+
+export type UnarchiveConferenceErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+    /**
+     * Insufficient permissions for this operation
+     */
+    403: ProblemDetail;
+    /**
+     * Resource not found
+     */
+    404: ProblemDetail;
+};
+
+export type UnarchiveConferenceError = UnarchiveConferenceErrors[keyof UnarchiveConferenceErrors];
+
+export type UnarchiveConferenceResponses = {
+    /**
+     * Conference unarchived (or was already active)
+     */
+    200: Conference;
+};
+
+export type UnarchiveConferenceResponse = UnarchiveConferenceResponses[keyof UnarchiveConferenceResponses];
+
+export type ListTagsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tags';
+};
+
+export type ListTagsErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+};
+
+export type ListTagsError = ListTagsErrors[keyof ListTagsErrors];
+
+export type ListTagsResponses = {
+    /**
+     * List of tags
+     */
+    200: Array<Tag>;
+};
+
+export type ListTagsResponse = ListTagsResponses[keyof ListTagsResponses];
+
+export type ListTracksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tracks';
+};
+
+export type ListTracksErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+};
+
+export type ListTracksError = ListTracksErrors[keyof ListTracksErrors];
+
+export type ListTracksResponses = {
+    /**
+     * List of tracks
+     */
+    200: Array<Track>;
+};
+
+export type ListTracksResponse = ListTracksResponses[keyof ListTracksResponses];
