@@ -67,12 +67,19 @@ func newConferenceTestServer(t *testing.T, dsn string) (*httptest.Server, *auth.
 			u.id, u.sub, u.email, u.name,
 		)
 		require.NoError(t, err)
+		_, err = pool.Exec(ctx,
+			`INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+			u.id,
+		)
+		require.NoError(t, err)
 	}
 
 	confSvc := service.NewConferenceService(pool)
+	starSvc := service.NewStarService(pool)
+	settingsSvc := service.NewSettingsService(pool)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tm := auth.NewTokenManager(secret)
-	srv := chihttp.NewServer(logger, confSvc)
+	srv := chihttp.NewServer(logger, confSvc, starSvc, settingsSvc)
 	router := chihttp.NewRouter(srv, tm, nil)
 	return httptest.NewServer(router), tm
 }
