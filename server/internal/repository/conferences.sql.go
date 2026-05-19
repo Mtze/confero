@@ -12,6 +12,76 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addConferenceTag = `-- name: AddConferenceTag :exec
+INSERT INTO conference_tags (conference_id, tag_id) VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type AddConferenceTagParams struct {
+	ConferenceID uuid.UUID `json:"conference_id"`
+	TagID        uuid.UUID `json:"tag_id"`
+}
+
+func (q *Queries) AddConferenceTag(ctx context.Context, arg AddConferenceTagParams) error {
+	_, err := q.db.Exec(ctx, addConferenceTag, arg.ConferenceID, arg.TagID)
+	return err
+}
+
+const addConferenceTrack = `-- name: AddConferenceTrack :exec
+INSERT INTO conference_tracks (conference_id, track_code) VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type AddConferenceTrackParams struct {
+	ConferenceID uuid.UUID `json:"conference_id"`
+	TrackCode    string    `json:"track_code"`
+}
+
+func (q *Queries) AddConferenceTrack(ctx context.Context, arg AddConferenceTrackParams) error {
+	_, err := q.db.Exec(ctx, addConferenceTrack, arg.ConferenceID, arg.TrackCode)
+	return err
+}
+
+const archiveConference = `-- name: ArchiveConference :one
+UPDATE conferences SET archived_at = COALESCE(archived_at, now()) WHERE id = $1
+RETURNING id, name, acronym, year, location, website_url, cfp_url,
+          primary_deadline, abstract_deadline, notification_date, camera_ready_date,
+          event_start_date, event_end_date, core_rank, h5_index, acceptance_rate_pct,
+          dblp_key, notes, archived_at, created_by, updated_by, created_at, updated_at
+`
+
+// Idempotent: if already archived, keeps the original archived_at timestamp.
+func (q *Queries) ArchiveConference(ctx context.Context, id uuid.UUID) (Conference, error) {
+	row := q.db.QueryRow(ctx, archiveConference, id)
+	var i Conference
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Acronym,
+		&i.Year,
+		&i.Location,
+		&i.WebsiteUrl,
+		&i.CfpUrl,
+		&i.PrimaryDeadline,
+		&i.AbstractDeadline,
+		&i.NotificationDate,
+		&i.CameraReadyDate,
+		&i.EventStartDate,
+		&i.EventEndDate,
+		&i.CoreRank,
+		&i.H5Index,
+		&i.AcceptanceRatePct,
+		&i.DblpKey,
+		&i.Notes,
+		&i.ArchivedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createConference = `-- name: CreateConference :one
 INSERT INTO conferences (
     name, acronym, year, location, website_url, cfp_url,
@@ -22,7 +92,7 @@ INSERT INTO conferences (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9, $10,
     $11, $12, $13, $14, $15,
-    $16, $17, $18, $18
+    $16, $17, $18, $19
 )
 RETURNING id, name, acronym, year, location, website_url, cfp_url,
           primary_deadline, abstract_deadline, notification_date, camera_ready_date,
@@ -49,6 +119,7 @@ type CreateConferenceParams struct {
 	DblpKey           *string            `json:"dblp_key"`
 	Notes             *string            `json:"notes"`
 	CreatedBy         pgtype.UUID        `json:"created_by"`
+	UpdatedBy         pgtype.UUID        `json:"updated_by"`
 }
 
 func (q *Queries) CreateConference(ctx context.Context, arg CreateConferenceParams) (Conference, error) {
@@ -71,6 +142,7 @@ func (q *Queries) CreateConference(ctx context.Context, arg CreateConferencePara
 		arg.DblpKey,
 		arg.Notes,
 		arg.CreatedBy,
+		arg.UpdatedBy,
 	)
 	var i Conference
 	err := row.Scan(
@@ -99,6 +171,36 @@ func (q *Queries) CreateConference(ctx context.Context, arg CreateConferencePara
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const deleteAllConferenceTags = `-- name: DeleteAllConferenceTags :exec
+DELETE FROM conference_tags WHERE conference_id = $1
+`
+
+func (q *Queries) DeleteAllConferenceTags(ctx context.Context, conferenceID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAllConferenceTags, conferenceID)
+	return err
+}
+
+const deleteAllConferenceTracks = `-- name: DeleteAllConferenceTracks :exec
+DELETE FROM conference_tracks WHERE conference_id = $1
+`
+
+func (q *Queries) DeleteAllConferenceTracks(ctx context.Context, conferenceID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAllConferenceTracks, conferenceID)
+	return err
+}
+
+const deleteConference = `-- name: DeleteConference :execrows
+DELETE FROM conferences WHERE id = $1
+`
+
+func (q *Queries) DeleteConference(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteConference, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getConference = `-- name: GetConference :one
@@ -141,18 +243,112 @@ func (q *Queries) GetConference(ctx context.Context, id uuid.UUID) (Conference, 
 	return i, err
 }
 
-const listConferences = `-- name: ListConferences :many
-SELECT id, name, acronym, year, location, website_url, cfp_url,
-       primary_deadline, abstract_deadline, notification_date, camera_ready_date,
-       event_start_date, event_end_date, core_rank, h5_index, acceptance_rate_pct,
-       dblp_key, notes, archived_at, created_by, updated_by, created_at, updated_at
-FROM conferences
-WHERE archived_at IS NULL
-ORDER BY primary_deadline ASC NULLS LAST, name ASC
+const getConferenceTags = `-- name: GetConferenceTags :many
+SELECT t.id, t.slug, t.name
+FROM tags t
+JOIN conference_tags ct ON ct.tag_id = t.id
+WHERE ct.conference_id = $1
+ORDER BY t.slug
 `
 
-func (q *Queries) ListConferences(ctx context.Context) ([]Conference, error) {
-	rows, err := q.db.Query(ctx, listConferences)
+type GetConferenceTagsRow struct {
+	ID   uuid.UUID `json:"id"`
+	Slug string    `json:"slug"`
+	Name string    `json:"name"`
+}
+
+func (q *Queries) GetConferenceTags(ctx context.Context, conferenceID uuid.UUID) ([]GetConferenceTagsRow, error) {
+	rows, err := q.db.Query(ctx, getConferenceTags, conferenceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetConferenceTagsRow
+	for rows.Next() {
+		var i GetConferenceTagsRow
+		if err := rows.Scan(&i.ID, &i.Slug, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getConferenceTracks = `-- name: GetConferenceTracks :many
+SELECT tr.code, tr.display_name, tr.sort_order
+FROM tracks tr
+JOIN conference_tracks ct ON ct.track_code = tr.code
+WHERE ct.conference_id = $1
+ORDER BY tr.sort_order, tr.code
+`
+
+type GetConferenceTracksRow struct {
+	Code        string `json:"code"`
+	DisplayName string `json:"display_name"`
+	SortOrder   int32  `json:"sort_order"`
+}
+
+func (q *Queries) GetConferenceTracks(ctx context.Context, conferenceID uuid.UUID) ([]GetConferenceTracksRow, error) {
+	rows, err := q.db.Query(ctx, getConferenceTracks, conferenceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetConferenceTracksRow
+	for rows.Next() {
+		var i GetConferenceTracksRow
+		if err := rows.Scan(&i.Code, &i.DisplayName, &i.SortOrder); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConferences = `-- name: ListConferences :many
+SELECT c.id, c.name, c.acronym, c.year, c.location, c.website_url, c.cfp_url,
+       c.primary_deadline, c.abstract_deadline, c.notification_date, c.camera_ready_date,
+       c.event_start_date, c.event_end_date, c.core_rank, c.h5_index, c.acceptance_rate_pct,
+       c.dblp_key, c.notes, c.archived_at, c.created_by, c.updated_by, c.created_at, c.updated_at
+FROM conferences c
+WHERE ($1::boolean IS TRUE OR c.archived_at IS NULL)
+  AND ($2::text IS NULL
+       OR EXISTS (
+           SELECT 1 FROM conference_tags ct
+           JOIN tags t ON t.id = ct.tag_id
+           WHERE ct.conference_id = c.id AND t.slug = $2::text
+       ))
+  AND ($3::text IS NULL
+       OR EXISTS (
+           SELECT 1 FROM conference_tracks ctr
+           WHERE ctr.conference_id = c.id AND ctr.track_code = $3::text
+       ))
+  AND ($4::text IS NULL
+       OR c.name ILIKE '%' || $4::text || '%'
+       OR c.acronym ILIKE '%' || $4::text || '%')
+ORDER BY c.primary_deadline ASC NULLS LAST, c.name ASC
+`
+
+type ListConferencesParams struct {
+	IncludeArchived *bool   `json:"include_archived"`
+	TagSlug         *string `json:"tag_slug"`
+	TrackCode       *string `json:"track_code"`
+	Search          *string `json:"search"`
+}
+
+func (q *Queries) ListConferences(ctx context.Context, arg ListConferencesParams) ([]Conference, error) {
+	rows, err := q.db.Query(ctx, listConferences,
+		arg.IncludeArchived,
+		arg.TagSlug,
+		arg.TrackCode,
+		arg.Search,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -193,4 +389,144 @@ func (q *Queries) ListConferences(ctx context.Context) ([]Conference, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const unarchiveConference = `-- name: UnarchiveConference :one
+UPDATE conferences SET archived_at = NULL WHERE id = $1
+RETURNING id, name, acronym, year, location, website_url, cfp_url,
+          primary_deadline, abstract_deadline, notification_date, camera_ready_date,
+          event_start_date, event_end_date, core_rank, h5_index, acceptance_rate_pct,
+          dblp_key, notes, archived_at, created_by, updated_by, created_at, updated_at
+`
+
+// Idempotent: clears archived_at whether it was set or not.
+func (q *Queries) UnarchiveConference(ctx context.Context, id uuid.UUID) (Conference, error) {
+	row := q.db.QueryRow(ctx, unarchiveConference, id)
+	var i Conference
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Acronym,
+		&i.Year,
+		&i.Location,
+		&i.WebsiteUrl,
+		&i.CfpUrl,
+		&i.PrimaryDeadline,
+		&i.AbstractDeadline,
+		&i.NotificationDate,
+		&i.CameraReadyDate,
+		&i.EventStartDate,
+		&i.EventEndDate,
+		&i.CoreRank,
+		&i.H5Index,
+		&i.AcceptanceRatePct,
+		&i.DblpKey,
+		&i.Notes,
+		&i.ArchivedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateConference = `-- name: UpdateConference :one
+UPDATE conferences SET
+    name              = $1,
+    acronym           = $2,
+    year              = $3,
+    location          = $4,
+    website_url       = $5,
+    cfp_url           = $6,
+    primary_deadline  = $7,
+    abstract_deadline = $8,
+    notification_date = $9,
+    camera_ready_date = $10,
+    event_start_date  = $11,
+    event_end_date    = $12,
+    core_rank         = $13,
+    h5_index          = $14,
+    acceptance_rate_pct = $15,
+    dblp_key          = $16,
+    notes             = $17,
+    updated_by        = $18
+WHERE id = $19
+RETURNING id, name, acronym, year, location, website_url, cfp_url,
+          primary_deadline, abstract_deadline, notification_date, camera_ready_date,
+          event_start_date, event_end_date, core_rank, h5_index, acceptance_rate_pct,
+          dblp_key, notes, archived_at, created_by, updated_by, created_at, updated_at
+`
+
+type UpdateConferenceParams struct {
+	Name              string             `json:"name"`
+	Acronym           string             `json:"acronym"`
+	Year              int32              `json:"year"`
+	Location          string             `json:"location"`
+	WebsiteUrl        *string            `json:"website_url"`
+	CfpUrl            *string            `json:"cfp_url"`
+	PrimaryDeadline   pgtype.Timestamptz `json:"primary_deadline"`
+	AbstractDeadline  pgtype.Timestamptz `json:"abstract_deadline"`
+	NotificationDate  pgtype.Timestamptz `json:"notification_date"`
+	CameraReadyDate   pgtype.Timestamptz `json:"camera_ready_date"`
+	EventStartDate    pgtype.Date        `json:"event_start_date"`
+	EventEndDate      pgtype.Date        `json:"event_end_date"`
+	CoreRank          *string            `json:"core_rank"`
+	H5Index           *int32             `json:"h5_index"`
+	AcceptanceRatePct pgtype.Numeric     `json:"acceptance_rate_pct"`
+	DblpKey           *string            `json:"dblp_key"`
+	Notes             *string            `json:"notes"`
+	UpdatedBy         pgtype.UUID        `json:"updated_by"`
+	ID                uuid.UUID          `json:"id"`
+}
+
+func (q *Queries) UpdateConference(ctx context.Context, arg UpdateConferenceParams) (Conference, error) {
+	row := q.db.QueryRow(ctx, updateConference,
+		arg.Name,
+		arg.Acronym,
+		arg.Year,
+		arg.Location,
+		arg.WebsiteUrl,
+		arg.CfpUrl,
+		arg.PrimaryDeadline,
+		arg.AbstractDeadline,
+		arg.NotificationDate,
+		arg.CameraReadyDate,
+		arg.EventStartDate,
+		arg.EventEndDate,
+		arg.CoreRank,
+		arg.H5Index,
+		arg.AcceptanceRatePct,
+		arg.DblpKey,
+		arg.Notes,
+		arg.UpdatedBy,
+		arg.ID,
+	)
+	var i Conference
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Acronym,
+		&i.Year,
+		&i.Location,
+		&i.WebsiteUrl,
+		&i.CfpUrl,
+		&i.PrimaryDeadline,
+		&i.AbstractDeadline,
+		&i.NotificationDate,
+		&i.CameraReadyDate,
+		&i.EventStartDate,
+		&i.EventEndDate,
+		&i.CoreRank,
+		&i.H5Index,
+		&i.AcceptanceRatePct,
+		&i.DblpKey,
+		&i.Notes,
+		&i.ArchivedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
