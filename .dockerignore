@@ -1,0 +1,11 @@
+# Dependencies
+web/node_modules/
+server/vendor/
+
+# Build artifacts
+web/dist/
+server/bin/
+
+# Development
+deploy/compose/data/
+.git/
