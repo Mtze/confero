@@ -1,9 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { createClient, createConfig } from '../client'
-import { getHealth } from '../index'
-import type { HealthStatus } from '../index'
+import { createClient, createConfig } from '../../api/client'
+import { getHealth } from '../../api/index'
+import type { HealthStatus } from '../../api/index'
 
 const BASE_URL = 'http://localhost'
 

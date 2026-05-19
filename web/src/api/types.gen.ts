@@ -8,6 +8,19 @@ export type HealthStatus = {
     status: 'ok';
 };
 
+export type CurrentUser = {
+    id: string;
+    email: string;
+    name: string;
+    roles: Array<'member' | 'admin'>;
+};
+
+export type ProblemDetail = {
+    title?: string;
+    status?: number;
+    detail?: string;
+};
+
 export type GetHealthData = {
     body?: never;
     path?: never;
@@ -23,3 +36,28 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type GetMeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me';
+};
+
+export type GetMeErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+};
+
+export type GetMeError = GetMeErrors[keyof GetMeErrors];
+
+export type GetMeResponses = {
+    /**
+     * Current authenticated user
+     */
+    200: CurrentUser;
+};
+
+export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
