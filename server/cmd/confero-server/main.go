@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"confero/internal/database"
 	chihttp "confero/internal/http"
 	"confero/internal/version"
 )
@@ -41,6 +42,14 @@ func main() {
 		}
 		close(done)
 	}()
+
+	if dsn := os.Getenv("CONFERO_DATABASE_URL"); dsn != "" {
+		logger.Info("running migrations")
+		if err := database.RunMigrations(dsn); err != nil {
+			logger.Error("migration failed", "err", err)
+			os.Exit(1)
+		}
+	}
 
 	logger.Info("starting server",
 		"addr", addr,
