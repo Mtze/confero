@@ -21,6 +21,8 @@ tags:
     description: Authenticated user profile
   - name: conferences
     description: Conference catalog management
+  - name: stars
+    description: Per-user conference stars (submission intent)
   - name: tags
     description: Conference tags (autocomplete source)
   - name: tracks
@@ -257,6 +259,109 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /api/v1/conferences/{id}/stars:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: starConference
+      summary: Star a conference
+      description: Marks the authenticated user's intent to submit to this conference. Idempotent. Requires member role.
+      tags: [stars]
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Conference starred (or was already starred)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: unstarConference
+      summary: Unstar a conference
+      description: Removes the authenticated user's star from this conference. Idempotent. Requires member role.
+      tags: [stars]
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Conference unstarred (or was not starred)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/me/stars:
+    get:
+      operationId: listMyStars
+      summary: List my starred conferences
+      description: Returns all conferences the authenticated user has starred, sorted by next upcoming deadline.
+      tags: [stars]
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: List of starred conferences
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Conference'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/me/settings:
+    get:
+      operationId: getMySettings
+      summary: Get my reminder settings
+      description: Returns the authenticated user's reminder and digest preferences.
+      tags: [users]
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: User settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateMySettings
+      summary: Update my reminder settings
+      description: Replaces the authenticated user's reminder and digest preferences. Re-materializes pending reminders with the new lead times.
+      tags: [users]
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserSettingsInput'
+      responses:
+        '200':
+          description: Updated user settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /api/v1/tags:
     get:
@@ -584,6 +689,84 @@ components:
           type: string
         sort_order:
           type: integer
+
+    UserSettings:
+      type: object
+      required:
+        - timezone
+        - reminder_lead_days
+        - weekly_digest_enabled
+        - weekly_digest_day
+        - weekly_digest_hour
+        - weekly_digest_horizon_weeks
+      properties:
+        timezone:
+          type: string
+          description: IANA timezone name.
+          example: Europe/Berlin
+        reminder_lead_days:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 365
+          maxItems: 10
+          description: Days before each deadline to send a reminder email.
+          example: [28, 14, 7, 1]
+        weekly_digest_enabled:
+          type: boolean
+          description: Whether to receive a weekly digest of upcoming deadlines.
+        weekly_digest_day:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: Day of week for the digest (0=Sunday … 6=Saturday).
+        weekly_digest_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: Hour of day (in user timezone) to send the digest.
+        weekly_digest_horizon_weeks:
+          type: integer
+          minimum: 1
+          maximum: 52
+          description: How many weeks ahead to include in the weekly digest.
+
+    UserSettingsInput:
+      type: object
+      required:
+        - timezone
+        - reminder_lead_days
+        - weekly_digest_enabled
+        - weekly_digest_day
+        - weekly_digest_hour
+        - weekly_digest_horizon_weeks
+      properties:
+        timezone:
+          type: string
+          example: Europe/Berlin
+        reminder_lead_days:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 365
+          maxItems: 10
+          example: [28, 14, 7, 1]
+        weekly_digest_enabled:
+          type: boolean
+        weekly_digest_day:
+          type: integer
+          minimum: 0
+          maximum: 6
+        weekly_digest_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        weekly_digest_horizon_weeks:
+          type: integer
+          minimum: 1
+          maximum: 52
 
     ProblemDetail:
       type: object
