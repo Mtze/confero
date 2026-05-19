@@ -1,0 +1,15 @@
+meta {
+  name: Unstar Conference
+  type: http
+  seq: 13
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/conferences/{{conferenceId}}/stars
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: session={{sessionToken}}
+}

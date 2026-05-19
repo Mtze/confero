@@ -1,0 +1,15 @@
+meta {
+  name: Get My Settings
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/v1/me/settings
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: session={{sessionToken}}
+}

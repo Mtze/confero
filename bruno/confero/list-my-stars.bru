@@ -1,0 +1,15 @@
+meta {
+  name: List My Stars
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/me/stars
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: session={{sessionToken}}
+}

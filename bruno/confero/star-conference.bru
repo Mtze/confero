@@ -1,0 +1,15 @@
+meta {
+  name: Star Conference
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/v1/conferences/{{conferenceId}}/stars
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: session={{sessionToken}}
+}
