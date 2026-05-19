@@ -1,36 +1,78 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"confero/internal/auth"
+	"confero/internal/config"
 	"confero/internal/database"
 	chihttp "confero/internal/http"
+	"confero/internal/repository"
 	"confero/internal/version"
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
+	cfg := config.Load()
+
+	level := slog.LevelInfo
+	if cfg.LogLevel == "debug" {
+		level = slog.LevelDebug
+	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: level,
 	}))
 
-	addr := ":8080"
-	if a := os.Getenv("CONFERO_HTTP_ADDR"); a != "" {
-		addr = a
+	if err := cfg.Validate(); err != nil {
+		logger.Error("invalid configuration", "err", err)
+		return 1
+	}
+
+	ctx := context.Background()
+
+	if err := database.RunMigrations(cfg.DatabaseURL); err != nil {
+		logger.Error("migration failed", "err", err)
+		return 1
+	}
+
+	pool, err := database.NewPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("database pool failed", "err", err)
+		return 1
+	}
+	defer pool.Close()
+
+	queries := repository.New(pool)
+	tm := auth.NewTokenManager(cfg.SessionSecret)
+
+	oidcHandler, err := auth.NewOIDCHandler(
+		ctx,
+		cfg.OIDCIssuerURL, cfg.OIDCClientID, cfg.OIDCClientSecret, cfg.OIDCRedirectURL,
+		cfg.OIDCMemberValue, cfg.OIDCAdminValue,
+		tm, queries,
+		logger,
+	)
+	if err != nil {
+		logger.Error("OIDC provider discovery failed", "err", err)
+		return 1
 	}
 
 	srv := chihttp.NewServer(logger)
-	router := chihttp.NewRouter(srv)
+	router := chihttp.NewRouter(srv, tm, oidcHandler)
 
 	httpServer := &http.Server{
-		Addr:    addr,
+		Addr:    cfg.HTTPAddr,
 		Handler: router,
 	}
 
-	// Graceful shutdown on SIGTERM / SIGINT.
 	done := make(chan struct{})
 	go func() {
 		sig := make(chan os.Signal, 1)
@@ -43,22 +85,15 @@ func main() {
 		close(done)
 	}()
 
-	if dsn := os.Getenv("CONFERO_DATABASE_URL"); dsn != "" {
-		logger.Info("running migrations")
-		if err := database.RunMigrations(dsn); err != nil {
-			logger.Error("migration failed", "err", err)
-			os.Exit(1)
-		}
-	}
-
 	logger.Info("starting server",
-		"addr", addr,
+		"addr", cfg.HTTPAddr,
 		"version", version.Version,
 		"commit", version.Commit,
 	)
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Error("server error", "err", err)
-		os.Exit(1)
+		return 1
 	}
 	<-done
+	return 0
 }
