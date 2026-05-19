@@ -73,7 +73,7 @@ func TestConferenceList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	list, err := q.ListConferences(ctx)
+	list, err := q.ListConferences(ctx, repository.ListConferencesParams{})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(list), 2)
 }
