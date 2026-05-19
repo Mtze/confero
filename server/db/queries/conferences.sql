@@ -91,6 +91,14 @@ RETURNING id, name, acronym, year, location, website_url, cfp_url,
           event_start_date, event_end_date, core_rank, h5_index, acceptance_rate_pct,
           dblp_key, notes, archived_at, created_by, updated_by, created_at, updated_at;
 
+-- name: GetConferenceByAcronymYear :one
+SELECT id, name, acronym, year, location, website_url, cfp_url,
+       primary_deadline, abstract_deadline, notification_date, camera_ready_date,
+       event_start_date, event_end_date, core_rank, h5_index, acceptance_rate_pct,
+       dblp_key, notes, archived_at, created_by, updated_by, created_at, updated_at
+FROM conferences
+WHERE LOWER(acronym) = LOWER(@acronym) AND year = @year;
+
 -- name: GetConferenceTags :many
 SELECT t.id, t.slug, t.name
 FROM tags t

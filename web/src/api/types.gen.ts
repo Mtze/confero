@@ -4,6 +4,21 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type CalendarToken = {
+    id: string;
+    /**
+     * Opaque bearer token used in the feed URL.
+     */
+    token: string;
+    kind: 'personal_starred';
+    created_at: string;
+    last_used_at?: string | null;
+    /**
+     * Full URL of the personal ICS feed for this token.
+     */
+    feed_url: string;
+};
+
 export type HealthStatus = {
     status: 'ok';
 };
@@ -118,6 +133,24 @@ export type UserSettingsInput = {
     weekly_digest_day: number;
     weekly_digest_hour: number;
     weekly_digest_horizon_weeks: number;
+};
+
+export type AuditEntry = {
+    id: string;
+    action: 'create' | 'update' | 'delete' | 'archive' | 'unarchive';
+    entity_type: string;
+    entity_id: string;
+    actor_user_id?: string | null;
+    actor_display_name: string;
+    actor_oidc_subject: string;
+    created_at: string;
+};
+
+export type ImportResult = {
+    created: number;
+    updated: number;
+    skipped: number;
+    errors?: Array<string>;
 };
 
 export type ProblemDetail = {
@@ -610,3 +643,205 @@ export type ListTracksResponses = {
 };
 
 export type ListTracksResponse = ListTracksResponses[keyof ListTracksResponses];
+
+export type GetPublicCalendarData = {
+    body?: never;
+    headers?: {
+        'If-None-Match'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/calendar/all.ics';
+};
+
+export type GetPublicCalendarResponses = {
+    /**
+     * iCalendar stream
+     */
+    200: string;
+};
+
+export type GetPublicCalendarResponse = GetPublicCalendarResponses[keyof GetPublicCalendarResponses];
+
+export type GetPersonalCalendarData = {
+    body?: never;
+    headers?: {
+        'If-None-Match'?: string;
+    };
+    path: {
+        token: string;
+    };
+    query?: never;
+    url: '/calendar/u/{token}.ics';
+};
+
+export type GetPersonalCalendarErrors = {
+    /**
+     * Resource not found
+     */
+    404: ProblemDetail;
+};
+
+export type GetPersonalCalendarError = GetPersonalCalendarErrors[keyof GetPersonalCalendarErrors];
+
+export type GetPersonalCalendarResponses = {
+    /**
+     * iCalendar stream
+     */
+    200: string;
+};
+
+export type GetPersonalCalendarResponse = GetPersonalCalendarResponses[keyof GetPersonalCalendarResponses];
+
+export type DeleteCalendarTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-tokens';
+};
+
+export type DeleteCalendarTokenErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+    /**
+     * Resource not found
+     */
+    404: ProblemDetail;
+};
+
+export type DeleteCalendarTokenError = DeleteCalendarTokenErrors[keyof DeleteCalendarTokenErrors];
+
+export type DeleteCalendarTokenResponses = {
+    /**
+     * Token revoked
+     */
+    204: void;
+};
+
+export type DeleteCalendarTokenResponse = DeleteCalendarTokenResponses[keyof DeleteCalendarTokenResponses];
+
+export type ListMyCalendarTokensData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-tokens';
+};
+
+export type ListMyCalendarTokensErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+};
+
+export type ListMyCalendarTokensError = ListMyCalendarTokensErrors[keyof ListMyCalendarTokensErrors];
+
+export type ListMyCalendarTokensResponses = {
+    /**
+     * Active calendar tokens
+     */
+    200: Array<CalendarToken>;
+};
+
+export type ListMyCalendarTokensResponse = ListMyCalendarTokensResponses[keyof ListMyCalendarTokensResponses];
+
+export type CreateCalendarTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/calendar-tokens';
+};
+
+export type CreateCalendarTokenErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+};
+
+export type CreateCalendarTokenError = CreateCalendarTokenErrors[keyof CreateCalendarTokenErrors];
+
+export type CreateCalendarTokenResponses = {
+    /**
+     * Newly created token
+     */
+    201: CalendarToken;
+};
+
+export type CreateCalendarTokenResponse = CreateCalendarTokenResponses[keyof CreateCalendarTokenResponses];
+
+export type ListAuditLogData = {
+    body?: never;
+    path?: never;
+    query?: {
+        entity_type?: string;
+        entity_id?: string;
+        /**
+         * Filter by actor OIDC subject.
+         */
+        actor?: string;
+        limit?: number;
+        /**
+         * Cursor - return entries before this timestamp.
+         */
+        before?: string;
+    };
+    url: '/api/v1/audit-log';
+};
+
+export type ListAuditLogErrors = {
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+    /**
+     * Insufficient permissions for this operation
+     */
+    403: ProblemDetail;
+};
+
+export type ListAuditLogError = ListAuditLogErrors[keyof ListAuditLogErrors];
+
+export type ListAuditLogResponses = {
+    /**
+     * Audit log entries
+     */
+    200: Array<AuditEntry>;
+};
+
+export type ListAuditLogResponse = ListAuditLogResponses[keyof ListAuditLogResponses];
+
+export type ImportConferencesData = {
+    body: string;
+    path?: never;
+    query?: never;
+    url: '/api/v1/import';
+};
+
+export type ImportConferencesErrors = {
+    /**
+     * Request body failed validation
+     */
+    400: ProblemDetail;
+    /**
+     * Authentication required or token invalid/expired
+     */
+    401: ProblemDetail;
+    /**
+     * Insufficient permissions for this operation
+     */
+    403: ProblemDetail;
+};
+
+export type ImportConferencesError = ImportConferencesErrors[keyof ImportConferencesErrors];
+
+export type ImportConferencesResponses = {
+    /**
+     * Import result
+     */
+    200: ImportResult;
+};
+
+export type ImportConferencesResponse = ImportConferencesResponses[keyof ImportConferencesResponses];

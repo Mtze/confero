@@ -27,6 +27,10 @@ tags:
     description: Conference tags (autocomplete source)
   - name: tracks
     description: Conference submission track types
+  - name: calendar
+    description: ICS calendar feeds and token management
+  - name: admin
+    description: Admin-only endpoints (audit log)
 
 paths:
   /healthz:
@@ -403,6 +407,199 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /calendar/all.ics:
+    get:
+      operationId: getPublicCalendar
+      summary: Public ICS calendar feed
+      description: All non-archived conferences as RFC 5545 iCalendar. Supports conditional GET via ETag.
+      tags: [calendar]
+      parameters:
+        - name: If-None-Match
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: iCalendar stream
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+          content:
+            text/calendar:
+              schema:
+                type: string
+        '304':
+          description: Not modified
+
+  /calendar/u/{token}.ics:
+    get:
+      operationId: getPersonalCalendar
+      summary: Personal ICS calendar feed
+      description: Starred conferences for the user identified by the calendar token.
+      tags: [calendar]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: If-None-Match
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: iCalendar stream
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+          content:
+            text/calendar:
+              schema:
+                type: string
+        '304':
+          description: Not modified
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/me/calendar-tokens:
+    get:
+      operationId: listMyCalendarTokens
+      summary: List calendar tokens
+      description: Returns the authenticated user's active calendar token(s).
+      tags: [calendar]
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Active calendar tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CalendarToken'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createCalendarToken
+      summary: Create or replace a calendar token
+      description: Generates a new personal calendar token and revokes any existing active token of the same kind.
+      tags: [calendar]
+      security:
+        - sessionCookie: []
+      responses:
+        '201':
+          description: Newly created token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarToken'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteCalendarToken
+      summary: Revoke calendar token
+      description: Revokes the authenticated user's active calendar token.
+      tags: [calendar]
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Token revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/audit-log:
+    get:
+      operationId: listAuditLog
+      summary: Query the audit log
+      description: Returns audit log entries. Admin only.
+      tags: [admin]
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+        - name: entity_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: actor
+          in: query
+          description: Filter by actor OIDC subject.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: before
+          in: query
+          description: Cursor - return entries before this timestamp.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/import:
+    post:
+      operationId: importConferences
+      summary: Bulk import conferences from YAML
+      description: Upserts a list of conferences from a YAML document. Member only.
+      tags: [conferences]
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          text/x-yaml:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -447,6 +644,30 @@ components:
             $ref: '#/components/schemas/ProblemDetail'
 
   schemas:
+    CalendarToken:
+      type: object
+      required: [id, token, kind, created_at, feed_url]
+      properties:
+        id:
+          type: string
+          format: uuid
+        token:
+          type: string
+          description: Opaque bearer token used in the feed URL.
+        kind:
+          type: string
+          enum: [personal_starred]
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        feed_url:
+          type: string
+          description: Full URL of the personal ICS feed for this token.
+
     HealthStatus:
       type: object
       required:
@@ -767,6 +988,48 @@ components:
           type: integer
           minimum: 1
           maximum: 52
+
+    AuditEntry:
+      type: object
+      required: [id, action, entity_type, entity_id, actor_display_name, actor_oidc_subject, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [create, update, delete, archive, unarchive]
+        entity_type:
+          type: string
+        entity_id:
+          type: string
+          format: uuid
+        actor_user_id:
+          type: string
+          format: uuid
+          nullable: true
+        actor_display_name:
+          type: string
+        actor_oidc_subject:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ImportResult:
+      type: object
+      required: [created, updated, skipped]
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
 
     ProblemDetail:
       type: object

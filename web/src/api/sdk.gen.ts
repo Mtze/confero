@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ArchiveConferenceData, ArchiveConferenceErrors, ArchiveConferenceResponses, CreateConferenceData, CreateConferenceErrors, CreateConferenceResponses, DeleteConferenceData, DeleteConferenceErrors, DeleteConferenceResponses, GetConferenceData, GetConferenceErrors, GetConferenceResponses, GetHealthData, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetMySettingsData, GetMySettingsErrors, GetMySettingsResponses, ListConferencesData, ListConferencesResponses, ListMyStarsData, ListMyStarsErrors, ListMyStarsResponses, ListTagsData, ListTagsErrors, ListTagsResponses, ListTracksData, ListTracksErrors, ListTracksResponses, StarConferenceData, StarConferenceErrors, StarConferenceResponses, UnarchiveConferenceData, UnarchiveConferenceErrors, UnarchiveConferenceResponses, UnstarConferenceData, UnstarConferenceErrors, UnstarConferenceResponses, UpdateConferenceData, UpdateConferenceErrors, UpdateConferenceResponses, UpdateMySettingsData, UpdateMySettingsErrors, UpdateMySettingsResponses } from './types.gen';
+import type { ArchiveConferenceData, ArchiveConferenceErrors, ArchiveConferenceResponses, CreateCalendarTokenData, CreateCalendarTokenErrors, CreateCalendarTokenResponses, CreateConferenceData, CreateConferenceErrors, CreateConferenceResponses, DeleteCalendarTokenData, DeleteCalendarTokenErrors, DeleteCalendarTokenResponses, DeleteConferenceData, DeleteConferenceErrors, DeleteConferenceResponses, GetConferenceData, GetConferenceErrors, GetConferenceResponses, GetHealthData, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetMySettingsData, GetMySettingsErrors, GetMySettingsResponses, GetPersonalCalendarData, GetPersonalCalendarErrors, GetPersonalCalendarResponses, GetPublicCalendarData, GetPublicCalendarResponses, ImportConferencesData, ImportConferencesErrors, ImportConferencesResponses, ListAuditLogData, ListAuditLogErrors, ListAuditLogResponses, ListConferencesData, ListConferencesResponses, ListMyCalendarTokensData, ListMyCalendarTokensErrors, ListMyCalendarTokensResponses, ListMyStarsData, ListMyStarsErrors, ListMyStarsResponses, ListTagsData, ListTagsErrors, ListTagsResponses, ListTracksData, ListTracksErrors, ListTracksResponses, StarConferenceData, StarConferenceErrors, StarConferenceResponses, UnarchiveConferenceData, UnarchiveConferenceErrors, UnarchiveConferenceResponses, UnstarConferenceData, UnstarConferenceErrors, UnstarConferenceResponses, UpdateConferenceData, UpdateConferenceErrors, UpdateConferenceResponses, UpdateMySettingsData, UpdateMySettingsErrors, UpdateMySettingsResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -245,4 +245,98 @@ export const listTracks = <ThrowOnError extends boolean = false>(options?: Optio
         }],
     url: '/api/v1/tracks',
     ...options
+});
+
+/**
+ * Public ICS calendar feed
+ *
+ * All non-archived conferences as RFC 5545 iCalendar. Supports conditional GET via ETag.
+ */
+export const getPublicCalendar = <ThrowOnError extends boolean = false>(options?: Options<GetPublicCalendarData, ThrowOnError>) => (options?.client ?? client).get<GetPublicCalendarResponses, unknown, ThrowOnError>({ url: '/calendar/all.ics', ...options });
+
+/**
+ * Personal ICS calendar feed
+ *
+ * Starred conferences for the user identified by the calendar token.
+ */
+export const getPersonalCalendar = <ThrowOnError extends boolean = false>(options: Options<GetPersonalCalendarData, ThrowOnError>) => (options.client ?? client).get<GetPersonalCalendarResponses, GetPersonalCalendarErrors, ThrowOnError>({ url: '/calendar/u/{token}.ics', ...options });
+
+/**
+ * Revoke calendar token
+ *
+ * Revokes the authenticated user's active calendar token.
+ */
+export const deleteCalendarToken = <ThrowOnError extends boolean = false>(options?: Options<DeleteCalendarTokenData, ThrowOnError>) => (options?.client ?? client).delete<DeleteCalendarTokenResponses, DeleteCalendarTokenErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/me/calendar-tokens',
+    ...options
+});
+
+/**
+ * List calendar tokens
+ *
+ * Returns the authenticated user's active calendar token(s).
+ */
+export const listMyCalendarTokens = <ThrowOnError extends boolean = false>(options?: Options<ListMyCalendarTokensData, ThrowOnError>) => (options?.client ?? client).get<ListMyCalendarTokensResponses, ListMyCalendarTokensErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/me/calendar-tokens',
+    ...options
+});
+
+/**
+ * Create or replace a calendar token
+ *
+ * Generates a new personal calendar token and revokes any existing active token of the same kind.
+ */
+export const createCalendarToken = <ThrowOnError extends boolean = false>(options?: Options<CreateCalendarTokenData, ThrowOnError>) => (options?.client ?? client).post<CreateCalendarTokenResponses, CreateCalendarTokenErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/me/calendar-tokens',
+    ...options
+});
+
+/**
+ * Query the audit log
+ *
+ * Returns audit log entries. Admin only.
+ */
+export const listAuditLog = <ThrowOnError extends boolean = false>(options?: Options<ListAuditLogData, ThrowOnError>) => (options?.client ?? client).get<ListAuditLogResponses, ListAuditLogErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/audit-log',
+    ...options
+});
+
+/**
+ * Bulk import conferences from YAML
+ *
+ * Upserts a list of conferences from a YAML document. Member only.
+ */
+export const importConferences = <ThrowOnError extends boolean = false>(options: Options<ImportConferencesData, ThrowOnError>) => (options.client ?? client).post<ImportConferencesResponses, ImportConferencesErrors, ThrowOnError>({
+    bodySerializer: null,
+    security: [{
+            in: 'cookie',
+            name: 'session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/import',
+    ...options,
+    headers: {
+        'Content-Type': 'text/x-yaml',
+        ...options.headers
+    }
 });

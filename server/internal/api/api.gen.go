@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -20,6 +21,48 @@ import (
 const (
 	SessionCookieScopes sessionCookieContextKey = "sessionCookie.Scopes"
 )
+
+// Defines values for AuditEntryAction.
+const (
+	Archive   AuditEntryAction = "archive"
+	Create    AuditEntryAction = "create"
+	Delete    AuditEntryAction = "delete"
+	Unarchive AuditEntryAction = "unarchive"
+	Update    AuditEntryAction = "update"
+)
+
+// Valid indicates whether the value is a known member of the AuditEntryAction enum.
+func (e AuditEntryAction) Valid() bool {
+	switch e {
+	case Archive:
+		return true
+	case Create:
+		return true
+	case Delete:
+		return true
+	case Unarchive:
+		return true
+	case Update:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CalendarTokenKind.
+const (
+	PersonalStarred CalendarTokenKind = "personal_starred"
+)
+
+// Valid indicates whether the value is a known member of the CalendarTokenKind enum.
+func (e CalendarTokenKind) Valid() bool {
+	switch e {
+	case PersonalStarred:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for ConferenceCoreRank.
 const (
@@ -108,6 +151,38 @@ func (e HealthStatusStatus) Valid() bool {
 	}
 }
 
+// AuditEntry defines model for AuditEntry.
+type AuditEntry struct {
+	Action           AuditEntryAction    `json:"action"`
+	ActorDisplayName string              `json:"actor_display_name"`
+	ActorOidcSubject string              `json:"actor_oidc_subject"`
+	ActorUserId      *openapi_types.UUID `json:"actor_user_id,omitempty"`
+	CreatedAt        time.Time           `json:"created_at"`
+	EntityId         openapi_types.UUID  `json:"entity_id"`
+	EntityType       string              `json:"entity_type"`
+	Id               openapi_types.UUID  `json:"id"`
+}
+
+// AuditEntryAction defines model for AuditEntry.Action.
+type AuditEntryAction string
+
+// CalendarToken defines model for CalendarToken.
+type CalendarToken struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// FeedUrl Full URL of the personal ICS feed for this token.
+	FeedUrl    string             `json:"feed_url"`
+	Id         openapi_types.UUID `json:"id"`
+	Kind       CalendarTokenKind  `json:"kind"`
+	LastUsedAt *time.Time         `json:"last_used_at,omitempty"`
+
+	// Token Opaque bearer token used in the feed URL.
+	Token string `json:"token"`
+}
+
+// CalendarTokenKind defines model for CalendarToken.Kind.
+type CalendarTokenKind string
+
 // Conference defines model for Conference.
 type Conference struct {
 	AbstractDeadline  *time.Time          `json:"abstract_deadline,omitempty"`
@@ -189,6 +264,14 @@ type HealthStatus struct {
 // HealthStatusStatus defines model for HealthStatus.Status.
 type HealthStatusStatus string
 
+// ImportResult defines model for ImportResult.
+type ImportResult struct {
+	Created int       `json:"created"`
+	Errors  *[]string `json:"errors,omitempty"`
+	Skipped int       `json:"skipped"`
+	Updated int       `json:"updated"`
+}
+
 // ProblemDetail defines model for ProblemDetail.
 type ProblemDetail struct {
 	Detail *string `json:"detail,omitempty"`
@@ -259,6 +342,19 @@ type Unauthorized = ProblemDetail
 // sessionCookieContextKey is the context key for sessionCookie security scheme
 type sessionCookieContextKey string
 
+// ListAuditLogParams defines parameters for ListAuditLog.
+type ListAuditLogParams struct {
+	EntityType *string             `form:"entity_type,omitempty" json:"entity_type,omitempty"`
+	EntityId   *openapi_types.UUID `form:"entity_id,omitempty" json:"entity_id,omitempty"`
+
+	// Actor Filter by actor OIDC subject.
+	Actor *string `form:"actor,omitempty" json:"actor,omitempty"`
+	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Before Cursor - return entries before this timestamp.
+	Before *time.Time `form:"before,omitempty" json:"before,omitempty"`
+}
+
 // ListConferencesParams defines parameters for ListConferences.
 type ListConferencesParams struct {
 	// Archived Include archived conferences when true.
@@ -274,6 +370,16 @@ type ListConferencesParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 }
 
+// GetPublicCalendarParams defines parameters for GetPublicCalendar.
+type GetPublicCalendarParams struct {
+	IfNoneMatch *string `json:"If-None-Match,omitempty"`
+}
+
+// GetPersonalCalendarParams defines parameters for GetPersonalCalendar.
+type GetPersonalCalendarParams struct {
+	IfNoneMatch *string `json:"If-None-Match,omitempty"`
+}
+
 // CreateConferenceJSONRequestBody defines body for CreateConference for application/json ContentType.
 type CreateConferenceJSONRequestBody = ConferenceInput
 
@@ -285,6 +391,9 @@ type UpdateMySettingsJSONRequestBody = UserSettingsInput
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Query the audit log
+	// (GET /api/v1/audit-log)
+	ListAuditLog(w http.ResponseWriter, r *http.Request, params ListAuditLogParams)
 	// List conferences
 	// (GET /api/v1/conferences)
 	ListConferences(w http.ResponseWriter, r *http.Request, params ListConferencesParams)
@@ -312,9 +421,21 @@ type ServerInterface interface {
 	// Unarchive a conference
 	// (POST /api/v1/conferences/{id}/unarchive)
 	UnarchiveConference(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Bulk import conferences from YAML
+	// (POST /api/v1/import)
+	ImportConferences(w http.ResponseWriter, r *http.Request)
 	// Current user profile
 	// (GET /api/v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// Revoke calendar token
+	// (DELETE /api/v1/me/calendar-tokens)
+	DeleteCalendarToken(w http.ResponseWriter, r *http.Request)
+	// List calendar tokens
+	// (GET /api/v1/me/calendar-tokens)
+	ListMyCalendarTokens(w http.ResponseWriter, r *http.Request)
+	// Create or replace a calendar token
+	// (POST /api/v1/me/calendar-tokens)
+	CreateCalendarToken(w http.ResponseWriter, r *http.Request)
 	// Get my reminder settings
 	// (GET /api/v1/me/settings)
 	GetMySettings(w http.ResponseWriter, r *http.Request)
@@ -330,6 +451,12 @@ type ServerInterface interface {
 	// List all track types
 	// (GET /api/v1/tracks)
 	ListTracks(w http.ResponseWriter, r *http.Request)
+	// Public ICS calendar feed
+	// (GET /calendar/all.ics)
+	GetPublicCalendar(w http.ResponseWriter, r *http.Request, params GetPublicCalendarParams)
+	// Personal ICS calendar feed
+	// (GET /calendar/u/{token}.ics)
+	GetPersonalCalendar(w http.ResponseWriter, r *http.Request, token string, params GetPersonalCalendarParams)
 	// Liveness check
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -338,6 +465,12 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Query the audit log
+// (GET /api/v1/audit-log)
+func (_ Unimplemented) ListAuditLog(w http.ResponseWriter, r *http.Request, params ListAuditLogParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // List conferences
 // (GET /api/v1/conferences)
@@ -393,9 +526,33 @@ func (_ Unimplemented) UnarchiveConference(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Bulk import conferences from YAML
+// (POST /api/v1/import)
+func (_ Unimplemented) ImportConferences(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Current user profile
 // (GET /api/v1/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Revoke calendar token
+// (DELETE /api/v1/me/calendar-tokens)
+func (_ Unimplemented) DeleteCalendarToken(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List calendar tokens
+// (GET /api/v1/me/calendar-tokens)
+func (_ Unimplemented) ListMyCalendarTokens(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create or replace a calendar token
+// (POST /api/v1/me/calendar-tokens)
+func (_ Unimplemented) CreateCalendarToken(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -429,6 +586,18 @@ func (_ Unimplemented) ListTracks(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Public ICS calendar feed
+// (GET /calendar/all.ics)
+func (_ Unimplemented) GetPublicCalendar(w http.ResponseWriter, r *http.Request, params GetPublicCalendarParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Personal ICS calendar feed
+// (GET /calendar/u/{token}.ics)
+func (_ Unimplemented) GetPersonalCalendar(w http.ResponseWriter, r *http.Request, token string, params GetPersonalCalendarParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Liveness check
 // (GET /healthz)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
@@ -443,6 +612,97 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListAuditLog operation middleware
+func (siw *ServerInterfaceWrapper) ListAuditLog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuditLogParams
+
+	// ------------- Optional query parameter "entity_type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entity_type", r.URL.Query(), &params.EntityType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "entity_type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entity_type", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "entity_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entity_id", r.URL.Query(), &params.EntityId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "entity_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entity_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "actor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "actor", r.URL.Query(), &params.Actor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "actor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuditLog(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListConferences operation middleware
 func (siw *ServerInterfaceWrapper) ListConferences(w http.ResponseWriter, r *http.Request) {
@@ -754,6 +1014,26 @@ func (siw *ServerInterfaceWrapper) UnarchiveConference(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ImportConferences operation middleware
+func (siw *ServerInterfaceWrapper) ImportConferences(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportConferences(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
 
@@ -765,6 +1045,66 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteCalendarToken operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCalendarToken(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCalendarToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyCalendarTokens operation middleware
+func (siw *ServerInterfaceWrapper) ListMyCalendarTokens(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyCalendarTokens(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateCalendarToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateCalendarToken(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateCalendarToken(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -865,6 +1205,97 @@ func (siw *ServerInterfaceWrapper) ListTracks(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListTracks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublicCalendar operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicCalendar(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicCalendarParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-None-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-None-Match")]; found {
+		var IfNoneMatch string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-None-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-None-Match", valueList[0], &IfNoneMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-None-Match", Err: err})
+			return
+		}
+
+		params.IfNoneMatch = &IfNoneMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicCalendar(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPersonalCalendar operation middleware
+func (siw *ServerInterfaceWrapper) GetPersonalCalendar(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPersonalCalendarParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-None-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-None-Match")]; found {
+		var IfNoneMatch string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-None-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-None-Match", valueList[0], &IfNoneMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-None-Match", Err: err})
+			return
+		}
+
+		params.IfNoneMatch = &IfNoneMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPersonalCalendar(w, r, token, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1002,6 +1433,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/audit-log", wrapper.ListAuditLog)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/conferences", wrapper.ListConferences)
 	})
 	r.Group(func(r chi.Router) {
@@ -1029,7 +1463,19 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/conferences/{id}/unarchive", wrapper.UnarchiveConference)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/import", wrapper.ImportConferences)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/me", wrapper.GetMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/me/calendar-tokens", wrapper.DeleteCalendarToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/me/calendar-tokens", wrapper.ListMyCalendarTokens)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/me/calendar-tokens", wrapper.CreateCalendarToken)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/me/settings", wrapper.GetMySettings)
@@ -1047,6 +1493,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/tracks", wrapper.ListTracks)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/calendar/all.ics", wrapper.GetPublicCalendar)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/calendar/u/{token}.ics", wrapper.GetPersonalCalendar)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthz", wrapper.GetHealth)
 	})
 
@@ -1062,6 +1514,60 @@ type ForbiddenApplicationProblemPlusJSONResponse ProblemDetail
 type NotFoundApplicationProblemPlusJSONResponse ProblemDetail
 
 type UnauthorizedApplicationProblemPlusJSONResponse ProblemDetail
+
+type ListAuditLogRequestObject struct {
+	Params ListAuditLogParams
+}
+
+type ListAuditLogResponseObject interface {
+	VisitListAuditLogResponse(w http.ResponseWriter) error
+}
+
+type ListAuditLog200JSONResponse []AuditEntry
+
+func (response ListAuditLog200JSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLog401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListAuditLog401ApplicationProblemPlusJSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLog403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListAuditLog403ApplicationProblemPlusJSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ListConferencesRequestObject struct {
 	Params ListConferencesParams
@@ -1644,6 +2150,76 @@ func (response UnarchiveConference404ApplicationProblemPlusJSONResponse) VisitUn
 	return err
 }
 
+type ImportConferencesRequestObject struct {
+	Body io.Reader
+}
+
+type ImportConferencesResponseObject interface {
+	VisitImportConferencesResponse(w http.ResponseWriter) error
+}
+
+type ImportConferences200JSONResponse ImportResult
+
+func (response ImportConferences200JSONResponse) VisitImportConferencesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportConferences400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ImportConferences400ApplicationProblemPlusJSONResponse) VisitImportConferencesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportConferences401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ImportConferences401ApplicationProblemPlusJSONResponse) VisitImportConferencesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportConferences403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ImportConferences403ApplicationProblemPlusJSONResponse) VisitImportConferencesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMeRequestObject struct {
 }
 
@@ -1670,6 +2246,127 @@ type GetMe401ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetMe401ApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCalendarTokenRequestObject struct {
+}
+
+type DeleteCalendarTokenResponseObject interface {
+	VisitDeleteCalendarTokenResponse(w http.ResponseWriter) error
+}
+
+type DeleteCalendarToken204Response struct {
+}
+
+func (response DeleteCalendarToken204Response) VisitDeleteCalendarTokenResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteCalendarToken401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteCalendarToken401ApplicationProblemPlusJSONResponse) VisitDeleteCalendarTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCalendarToken404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteCalendarToken404ApplicationProblemPlusJSONResponse) VisitDeleteCalendarTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyCalendarTokensRequestObject struct {
+}
+
+type ListMyCalendarTokensResponseObject interface {
+	VisitListMyCalendarTokensResponse(w http.ResponseWriter) error
+}
+
+type ListMyCalendarTokens200JSONResponse []CalendarToken
+
+func (response ListMyCalendarTokens200JSONResponse) VisitListMyCalendarTokensResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyCalendarTokens401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListMyCalendarTokens401ApplicationProblemPlusJSONResponse) VisitListMyCalendarTokensResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCalendarTokenRequestObject struct {
+}
+
+type CreateCalendarTokenResponseObject interface {
+	VisitCreateCalendarTokenResponse(w http.ResponseWriter) error
+}
+
+type CreateCalendarToken201JSONResponse CalendarToken
+
+func (response CreateCalendarToken201JSONResponse) VisitCreateCalendarTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCalendarToken401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateCalendarToken401ApplicationProblemPlusJSONResponse) VisitCreateCalendarTokenResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1883,6 +2580,119 @@ func (response ListTracks401ApplicationProblemPlusJSONResponse) VisitListTracksR
 	return err
 }
 
+type GetPublicCalendarRequestObject struct {
+	Params GetPublicCalendarParams
+}
+
+type GetPublicCalendarResponseObject interface {
+	VisitGetPublicCalendarResponse(w http.ResponseWriter) error
+}
+
+type GetPublicCalendar200ResponseHeaders struct {
+	CacheControl *string
+	ETag         *string
+}
+
+type GetPublicCalendar200TextcalendarResponse struct {
+	Body          io.Reader
+	Headers       GetPublicCalendar200ResponseHeaders
+	ContentLength int64
+}
+
+func (response GetPublicCalendar200TextcalendarResponse) VisitGetPublicCalendarResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/calendar")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.CacheControl != nil {
+		w.Header().Set("Cache-Control", fmt.Sprint(*response.Headers.CacheControl))
+	}
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetPublicCalendar304Response struct {
+}
+
+func (response GetPublicCalendar304Response) VisitGetPublicCalendarResponse(w http.ResponseWriter) error {
+	w.WriteHeader(304)
+	return nil
+}
+
+type GetPersonalCalendarRequestObject struct {
+	Token  string `json:"token"`
+	Params GetPersonalCalendarParams
+}
+
+type GetPersonalCalendarResponseObject interface {
+	VisitGetPersonalCalendarResponse(w http.ResponseWriter) error
+}
+
+type GetPersonalCalendar200ResponseHeaders struct {
+	CacheControl *string
+	ETag         *string
+}
+
+type GetPersonalCalendar200TextcalendarResponse struct {
+	Body          io.Reader
+	Headers       GetPersonalCalendar200ResponseHeaders
+	ContentLength int64
+}
+
+func (response GetPersonalCalendar200TextcalendarResponse) VisitGetPersonalCalendarResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/calendar")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.CacheControl != nil {
+		w.Header().Set("Cache-Control", fmt.Sprint(*response.Headers.CacheControl))
+	}
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetPersonalCalendar304Response struct {
+}
+
+func (response GetPersonalCalendar304Response) VisitGetPersonalCalendarResponse(w http.ResponseWriter) error {
+	w.WriteHeader(304)
+	return nil
+}
+
+type GetPersonalCalendar404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetPersonalCalendar404ApplicationProblemPlusJSONResponse) VisitGetPersonalCalendarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthRequestObject struct {
 }
 
@@ -1906,6 +2716,9 @@ func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseW
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Query the audit log
+	// (GET /api/v1/audit-log)
+	ListAuditLog(ctx context.Context, request ListAuditLogRequestObject) (ListAuditLogResponseObject, error)
 	// List conferences
 	// (GET /api/v1/conferences)
 	ListConferences(ctx context.Context, request ListConferencesRequestObject) (ListConferencesResponseObject, error)
@@ -1933,9 +2746,21 @@ type StrictServerInterface interface {
 	// Unarchive a conference
 	// (POST /api/v1/conferences/{id}/unarchive)
 	UnarchiveConference(ctx context.Context, request UnarchiveConferenceRequestObject) (UnarchiveConferenceResponseObject, error)
+	// Bulk import conferences from YAML
+	// (POST /api/v1/import)
+	ImportConferences(ctx context.Context, request ImportConferencesRequestObject) (ImportConferencesResponseObject, error)
 	// Current user profile
 	// (GET /api/v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// Revoke calendar token
+	// (DELETE /api/v1/me/calendar-tokens)
+	DeleteCalendarToken(ctx context.Context, request DeleteCalendarTokenRequestObject) (DeleteCalendarTokenResponseObject, error)
+	// List calendar tokens
+	// (GET /api/v1/me/calendar-tokens)
+	ListMyCalendarTokens(ctx context.Context, request ListMyCalendarTokensRequestObject) (ListMyCalendarTokensResponseObject, error)
+	// Create or replace a calendar token
+	// (POST /api/v1/me/calendar-tokens)
+	CreateCalendarToken(ctx context.Context, request CreateCalendarTokenRequestObject) (CreateCalendarTokenResponseObject, error)
 	// Get my reminder settings
 	// (GET /api/v1/me/settings)
 	GetMySettings(ctx context.Context, request GetMySettingsRequestObject) (GetMySettingsResponseObject, error)
@@ -1951,6 +2776,12 @@ type StrictServerInterface interface {
 	// List all track types
 	// (GET /api/v1/tracks)
 	ListTracks(ctx context.Context, request ListTracksRequestObject) (ListTracksResponseObject, error)
+	// Public ICS calendar feed
+	// (GET /calendar/all.ics)
+	GetPublicCalendar(ctx context.Context, request GetPublicCalendarRequestObject) (GetPublicCalendarResponseObject, error)
+	// Personal ICS calendar feed
+	// (GET /calendar/u/{token}.ics)
+	GetPersonalCalendar(ctx context.Context, request GetPersonalCalendarRequestObject) (GetPersonalCalendarResponseObject, error)
 	// Liveness check
 	// (GET /healthz)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -1983,6 +2814,32 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ListAuditLog operation middleware
+func (sh *strictHandler) ListAuditLog(w http.ResponseWriter, r *http.Request, params ListAuditLogParams) {
+	var request ListAuditLogRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAuditLog(ctx, request.(ListAuditLogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAuditLog")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAuditLogResponseObject); ok {
+		if err := validResponse.VisitListAuditLogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ListConferences operation middleware
@@ -2231,6 +3088,32 @@ func (sh *strictHandler) UnarchiveConference(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// ImportConferences operation middleware
+func (sh *strictHandler) ImportConferences(w http.ResponseWriter, r *http.Request) {
+	var request ImportConferencesRequestObject
+
+	request.Body = r.Body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ImportConferences(ctx, request.(ImportConferencesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ImportConferences")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ImportConferencesResponseObject); ok {
+		if err := validResponse.VisitImportConferencesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetMe operation middleware
 func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	var request GetMeRequestObject
@@ -2248,6 +3131,78 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteCalendarToken operation middleware
+func (sh *strictHandler) DeleteCalendarToken(w http.ResponseWriter, r *http.Request) {
+	var request DeleteCalendarTokenRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteCalendarToken(ctx, request.(DeleteCalendarTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteCalendarToken")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteCalendarTokenResponseObject); ok {
+		if err := validResponse.VisitDeleteCalendarTokenResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMyCalendarTokens operation middleware
+func (sh *strictHandler) ListMyCalendarTokens(w http.ResponseWriter, r *http.Request) {
+	var request ListMyCalendarTokensRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMyCalendarTokens(ctx, request.(ListMyCalendarTokensRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMyCalendarTokens")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMyCalendarTokensResponseObject); ok {
+		if err := validResponse.VisitListMyCalendarTokensResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateCalendarToken operation middleware
+func (sh *strictHandler) CreateCalendarToken(w http.ResponseWriter, r *http.Request) {
+	var request CreateCalendarTokenRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateCalendarToken(ctx, request.(CreateCalendarTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateCalendarToken")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateCalendarTokenResponseObject); ok {
+		if err := validResponse.VisitCreateCalendarTokenResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2375,6 +3330,59 @@ func (sh *strictHandler) ListTracks(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListTracksResponseObject); ok {
 		if err := validResponse.VisitListTracksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPublicCalendar operation middleware
+func (sh *strictHandler) GetPublicCalendar(w http.ResponseWriter, r *http.Request, params GetPublicCalendarParams) {
+	var request GetPublicCalendarRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPublicCalendar(ctx, request.(GetPublicCalendarRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPublicCalendar")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPublicCalendarResponseObject); ok {
+		if err := validResponse.VisitGetPublicCalendarResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPersonalCalendar operation middleware
+func (sh *strictHandler) GetPersonalCalendar(w http.ResponseWriter, r *http.Request, token string, params GetPersonalCalendarParams) {
+	var request GetPersonalCalendarRequestObject
+
+	request.Token = token
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPersonalCalendar(ctx, request.(GetPersonalCalendarRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPersonalCalendar")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPersonalCalendarResponseObject); ok {
+		if err := validResponse.VisitGetPersonalCalendarResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

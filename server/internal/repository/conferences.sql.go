@@ -243,6 +243,51 @@ func (q *Queries) GetConference(ctx context.Context, id uuid.UUID) (Conference, 
 	return i, err
 }
 
+const getConferenceByAcronymYear = `-- name: GetConferenceByAcronymYear :one
+SELECT id, name, acronym, year, location, website_url, cfp_url,
+       primary_deadline, abstract_deadline, notification_date, camera_ready_date,
+       event_start_date, event_end_date, core_rank, h5_index, acceptance_rate_pct,
+       dblp_key, notes, archived_at, created_by, updated_by, created_at, updated_at
+FROM conferences
+WHERE LOWER(acronym) = LOWER($1) AND year = $2
+`
+
+type GetConferenceByAcronymYearParams struct {
+	Acronym string `json:"acronym"`
+	Year    int32  `json:"year"`
+}
+
+func (q *Queries) GetConferenceByAcronymYear(ctx context.Context, arg GetConferenceByAcronymYearParams) (Conference, error) {
+	row := q.db.QueryRow(ctx, getConferenceByAcronymYear, arg.Acronym, arg.Year)
+	var i Conference
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Acronym,
+		&i.Year,
+		&i.Location,
+		&i.WebsiteUrl,
+		&i.CfpUrl,
+		&i.PrimaryDeadline,
+		&i.AbstractDeadline,
+		&i.NotificationDate,
+		&i.CameraReadyDate,
+		&i.EventStartDate,
+		&i.EventEndDate,
+		&i.CoreRank,
+		&i.H5Index,
+		&i.AcceptanceRatePct,
+		&i.DblpKey,
+		&i.Notes,
+		&i.ArchivedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getConferenceTags = `-- name: GetConferenceTags :many
 SELECT t.id, t.slug, t.name
 FROM tags t
