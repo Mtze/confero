@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # --------------------------------------------------------------------------- #
+  # Go                                                                          #
+  # --------------------------------------------------------------------------- #
+
+  go-lint:
+    name: Go lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: server
+          version: latest
+
+  go-test:
+    name: Go test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
+      - name: Run tests
+        working-directory: server
+        run: |
+          go test -race \
+            -ldflags "-X confero/internal/version.Version=${{ github.sha }} -X confero/internal/version.Commit=${{ github.sha }}" \
+            ./...
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+
+  # --------------------------------------------------------------------------- #
+  # Web                                                                         #
+  # --------------------------------------------------------------------------- #
+
+  web-lint:
+    name: Web lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: web
+        run: pnpm lint
+
+  web-typecheck:
+    name: Web typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: web
+        run: pnpm typecheck
+
+  web-test:
+    name: Web test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        working-directory: web
+        run: pnpm test
+
+  web-build:
+    name: Web build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: web
+        run: pnpm build
+
+  # --------------------------------------------------------------------------- #
+  # OpenAPI                                                                     #
+  # --------------------------------------------------------------------------- #
+
+  openapi-lint:
+    name: OpenAPI lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Lint OpenAPI spec
+        run: npx --yes @redocly/cli@latest lint api/openapi.yaml
+
+  # --------------------------------------------------------------------------- #
+  # Helm                                                                        #
+  # --------------------------------------------------------------------------- #
+
+  helm-lint:
+    name: Helm lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Lint Helm chart
+        run: helm lint deploy/helm/confero
+
+  # --------------------------------------------------------------------------- #
+  # Conventional Commits (PRs only)                                             #
+  # --------------------------------------------------------------------------- #
+
+  commitlint:
+    name: Commit lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: commitlint.config.cjs
