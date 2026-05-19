@@ -17,7 +17,7 @@ import (
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	srv := chihttp.NewServer(logger, nil, nil, nil)
+	srv := chihttp.NewServer(logger, nil, nil, nil, nil, nil)
 	router := chihttp.NewRouter(srv, nil, nil)
 	return httptest.NewServer(router)
 }

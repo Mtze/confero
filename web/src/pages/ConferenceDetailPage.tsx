@@ -8,7 +8,7 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { DeadlineCountdown } from '../components/ConferenceCard'
 import { ConferenceDialog } from '../features/conferences/ConferenceDialog'
-import { formatISO, parseISO, format } from 'date-fns'
+import { parseISO, format } from 'date-fns'
 
 function DateField({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null

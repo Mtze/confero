@@ -1,0 +1,11 @@
+meta {
+  name: Get Personal Calendar
+  type: http
+  seq: 19
+}
+
+get {
+  url: {{baseUrl}}/calendar/u/{{calendarToken}}.ics
+  body: none
+  auth: none
+}

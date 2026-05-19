@@ -79,7 +79,7 @@ func newConferenceTestServer(t *testing.T, dsn string) (*httptest.Server, *auth.
 	settingsSvc := service.NewSettingsService(pool)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tm := auth.NewTokenManager(secret)
-	srv := chihttp.NewServer(logger, confSvc, starSvc, settingsSvc)
+	srv := chihttp.NewServer(logger, confSvc, starSvc, settingsSvc, nil, nil)
 	router := chihttp.NewRouter(srv, tm, nil)
 	return httptest.NewServer(router), tm
 }

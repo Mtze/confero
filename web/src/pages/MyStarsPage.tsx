@@ -8,7 +8,7 @@ import { ConferenceCard } from '../components/ConferenceCard'
 
 export function MyStarsPage() {
   const navigate = useNavigate()
-  const { data: user, isLoading: userLoading, error: userError } = useCurrentUser()
+  const { data: user, isLoading: userLoading } = useCurrentUser()
   const qc = useQueryClient()
 
   useEffect(() => {

@@ -23,7 +23,7 @@ func newAuthTestServer(t *testing.T) (*httptest.Server, *auth.TokenManager) {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tm := auth.NewTokenManager(meTestSecret)
-	srv := chihttp.NewServer(logger, nil, nil, nil)
+	srv := chihttp.NewServer(logger, nil, nil, nil, nil, nil)
 	router := chihttp.NewRouter(srv, tm, nil)
 	return httptest.NewServer(router), tm
 }
