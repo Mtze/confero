@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: Confero API
+  description: Conference tracking API for the TUM CS Education chair.
+  version: 0.1.0
+  contact:
+    name: CS Education Chair, TU München
+  license:
+    name: TBD
+servers:
+  - url: /
+    description: Same-origin (proxied by ingress in production)
+paths: {}
