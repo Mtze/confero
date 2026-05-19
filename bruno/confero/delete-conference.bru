@@ -1,0 +1,11 @@
+meta {
+  name: Delete Conference
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/conferences/{{conferenceId}}
+  body: none
+  auth: none
+}

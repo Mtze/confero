@@ -1,0 +1,35 @@
+meta {
+  name: Update Conference
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/api/v1/conferences/{{conferenceId}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "SIGCSE Technical Symposium",
+    "acronym": "SIGCSE",
+    "year": 2027,
+    "location": "Portland, OR, USA (updated)",
+    "website_url": "https://sigcse2027.sigcse.org",
+    "cfp_url": null,
+    "primary_deadline": "2026-09-01T23:59:00Z",
+    "abstract_deadline": null,
+    "notification_date": null,
+    "camera_ready_date": null,
+    "event_start_date": "2027-02-28",
+    "event_end_date": "2027-03-05",
+    "core_rank": "A",
+    "h5_index": null,
+    "acceptance_rate_pct": null,
+    "dblp_key": null,
+    "notes": null,
+    "tag_slugs": ["cs-education"],
+    "track_codes": ["full_paper"]
+  }
+}

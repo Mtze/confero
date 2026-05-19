@@ -1,0 +1,18 @@
+meta {
+  name: List Conferences
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/conferences
+  body: none
+  auth: none
+}
+
+params:query {
+  ~archived: false
+  ~tag: cs-education
+  ~track: full_paper
+  ~q: SIGCSE
+}

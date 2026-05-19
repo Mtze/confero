@@ -1,0 +1,35 @@
+meta {
+  name: Create Conference
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/conferences
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "SIGCSE Technical Symposium",
+    "acronym": "SIGCSE",
+    "year": 2027,
+    "location": "Portland, OR, USA",
+    "website_url": "https://sigcse2027.sigcse.org",
+    "cfp_url": "https://sigcse2027.sigcse.org/cfp",
+    "primary_deadline": "2026-09-01T23:59:00Z",
+    "abstract_deadline": "2026-08-25T23:59:00Z",
+    "notification_date": "2026-11-01T00:00:00Z",
+    "camera_ready_date": "2026-12-01T00:00:00Z",
+    "event_start_date": "2027-02-28",
+    "event_end_date": "2027-03-05",
+    "core_rank": "A",
+    "h5_index": 42,
+    "acceptance_rate_pct": 30.5,
+    "dblp_key": "conf/sigcse/2027",
+    "notes": "Annual symposium on CS education.",
+    "tag_slugs": ["cs-education", "programming-tools"],
+    "track_codes": ["full_paper", "short_paper"]
+  }
+}
