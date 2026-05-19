@@ -47,6 +47,6 @@ describe('getMe', () => {
     const result = await getMe({ client: testClient })
 
     expect(result.data).toBeUndefined()
-    expect(result.response.status).toBe(401)
+    expect(result.response?.status).toBe(401)
   })
 })
