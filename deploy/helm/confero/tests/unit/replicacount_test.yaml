@@ -1,0 +1,32 @@
+suite: server replicaCount schema
+templates:
+  - templates/server-deployment.yaml
+tests:
+  - it: should set replicaCount to 1 by default
+    set:
+      oidc.issuerURL: https://keycloak.example.org/realms/confero
+      oidc.clientID: confero
+      ingress.host: confero.example.org
+      session.secretRef.name: confero-session
+      session.secretRef.key: secret
+      oidc.clientSecretRef.name: confero-oidc
+      oidc.clientSecretRef.key: client-secret
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: should reflect replicaCount 1 in deployment
+    set:
+      server.replicaCount: 1
+      oidc.issuerURL: https://keycloak.example.org/realms/confero
+      oidc.clientID: confero
+      ingress.host: confero.example.org
+      session.secretRef.name: confero-session
+      session.secretRef.key: secret
+      oidc.clientSecretRef.name: confero-oidc
+      oidc.clientSecretRef.key: client-secret
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1

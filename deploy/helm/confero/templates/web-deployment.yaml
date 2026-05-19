@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "confero.fullname" . }}-web
+  labels:
+    {{- include "confero.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "confero.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "confero.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+    spec:
+      serviceAccountName: {{ include "confero.serviceAccountName" . }}
+      containers:
+        - name: web
+          image: "{{ .Values.image.web.repository }}:{{ .Values.image.web.tag }}"
+          imagePullPolicy: {{ .Values.image.web.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}

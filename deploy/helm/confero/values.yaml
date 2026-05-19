@@ -1,6 +1,3 @@
-# Default values for confero.
-# Helm chart is fleshed out in M12; this stub allows helm lint to pass in M0.
-
 image:
   server:
     repository: ghcr.io/mtze/confero-server
@@ -13,6 +10,79 @@ image:
 
 server:
   replicaCount: 1
+  strategy:
+    type: Recreate
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  env: {}
 
 web:
   replicaCount: 2
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: confero.example.org
+  tls:
+    enabled: true
+    secretName: confero-tls
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+oidc:
+  issuerURL: https://keycloak.example.org/realms/confero
+  clientID: confero
+  clientSecretRef:
+    name: confero-oidc
+    key: client-secret
+  memberValue: cs-edu-chair
+  adminValue: cs-edu-chair-admin
+
+smtp:
+  addr: ""
+  from: ""
+  usernameRef:
+    name: ""
+    key: ""
+  passwordRef:
+    name: ""
+    key: ""
+
+session:
+  secretRef:
+    name: confero-session
+    key: secret
+
+publicBaseURL: https://confero.example.org
+
+postgres:
+  enabled: true
+  instances: 1
+  storage:
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+networkPolicy:
+  enabled: false
+
+nameOverride: ""
+fullnameOverride: ""

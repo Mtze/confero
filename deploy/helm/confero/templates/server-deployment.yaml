@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "confero.fullname" . }}-server
+  labels:
+    {{- include "confero.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  replicas: {{ .Values.server.replicaCount }}
+  strategy:
+    {{- toYaml .Values.server.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "confero.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        {{- include "confero.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: server
+    spec:
+      serviceAccountName: {{ include "confero.serviceAccountName" . }}
+      containers:
+        - name: server
+          image: "{{ .Values.image.server.repository }}:{{ .Values.image.server.tag }}"
+          imagePullPolicy: {{ .Values.image.server.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "confero.fullname" . }}-config
+          env:
+            - name: CONFERO_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.oidc.clientSecretRef.name }}
+                  key: {{ .Values.oidc.clientSecretRef.key }}
+            - name: CONFERO_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.session.secretRef.name }}
+                  key: {{ .Values.session.secretRef.key }}
+            - name: CONFERO_OIDC_REDIRECT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "confero.fullname" . }}-derived
+                  key: CONFERO_OIDC_REDIRECT_URL
+            {{- if .Values.smtp.usernameRef.name }}
+            - name: CONFERO_SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.smtp.usernameRef.name }}
+                  key: {{ .Values.smtp.usernameRef.key }}
+            {{- end }}
+            {{- if .Values.smtp.passwordRef.name }}
+            - name: CONFERO_SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.smtp.passwordRef.name }}
+                  key: {{ .Values.smtp.passwordRef.key }}
+            {{- end }}
+            {{- if .Values.postgres.enabled }}
+            - name: CONFERO_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "confero.fullname" . }}-app
+                  key: uri
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}

@@ -1,0 +1,35 @@
+suite: CNPG cluster
+templates:
+  - templates/cnpg-cluster.yaml
+tests:
+  - it: should not render Cluster when postgres is disabled
+    set:
+      postgres.enabled: false
+      oidc.issuerURL: https://keycloak.example.org/realms/confero
+      oidc.clientID: confero
+      ingress.host: confero.example.org
+      session.secretRef.name: confero-session
+      session.secretRef.key: secret
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render Cluster when postgres is enabled
+    set:
+      postgres.enabled: true
+      postgres.instances: 1
+      postgres.storage.size: 10Gi
+      oidc.issuerURL: https://keycloak.example.org/realms/confero
+      oidc.clientID: confero
+      ingress.host: confero.example.org
+      session.secretRef.name: confero-session
+      session.secretRef.key: secret
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Cluster
+      - equal:
+          path: spec.bootstrap.initdb.database
+          value: confero

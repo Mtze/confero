@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "object",
+      "properties": {
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1,
+          "description": "Server replica count. Must be 1 in v1 due to in-process scheduler."
+        }
+      }
+    },
+    "oidc": {
+      "type": "object",
+      "properties": {
+        "issuerURL": {
+          "type": "string",
+          "minLength": 1
+        },
+        "clientID": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["issuerURL", "clientID"]
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["host"]
+    }
+  }
+}

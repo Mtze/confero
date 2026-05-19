@@ -81,7 +81,7 @@ helm-lint: ## Lint the Helm chart
 # --------------------------------------------------------------------------- #
 
 .PHONY: test
-test: go-test web-test ## Run all tests
+test: go-test web-test helm-test ## Run all tests
 
 .PHONY: go-test
 go-test: ## Run Go tests with the race detector
@@ -92,6 +92,11 @@ go-test: ## Run Go tests with the race detector
 web-test: ## Run web tests (Vitest)
 	@echo "==> pnpm test ..."
 	cd $(WEB_DIR) && pnpm test
+
+.PHONY: helm-test
+helm-test: ## Run helm-unittest tests for the Helm chart
+	@echo "==> helm unittest ..."
+	helm unittest -f 'tests/unit/*_test.yaml' $(HELM_DIR)
 
 .PHONY: web-typecheck
 web-typecheck: ## Type-check TypeScript without emitting

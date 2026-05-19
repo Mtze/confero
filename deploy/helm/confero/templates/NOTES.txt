@@ -1,0 +1,16 @@
+Confero has been deployed.
+
+Access the application at: https://{{ .Values.ingress.host }}
+
+Before first use, ensure the following secrets exist in the namespace:
+  - {{ .Values.oidc.clientSecretRef.name }} (key: {{ .Values.oidc.clientSecretRef.key }})
+  - {{ .Values.session.secretRef.name }} (key: {{ .Values.session.secretRef.key }})
+
+{{- if .Values.postgres.enabled }}
+CloudNativePG operator must be installed in the cluster before deploying this chart.
+The CNPG Cluster resource will create a secret named {{ include "confero.fullname" . }}-app
+containing the database connection URI.
+{{- end }}
+
+WARNING: server.replicaCount > 1 is not supported in v1 (in-process scheduler).
+The Helm schema enforces replicaCount=1.

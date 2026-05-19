@@ -1,0 +1,33 @@
+suite: ingress TLS
+templates:
+  - templates/ingress.yaml
+tests:
+  - it: should not have tls block when tls is disabled
+    set:
+      ingress.enabled: true
+      ingress.tls.enabled: false
+      ingress.tls.secretName: confero-tls
+      ingress.host: confero.example.org
+      ingress.className: nginx
+      oidc.issuerURL: https://keycloak.example.org/realms/confero
+      oidc.clientID: confero
+      session.secretRef.name: confero-session
+      session.secretRef.key: secret
+    asserts:
+      - isNull:
+          path: spec.tls
+
+  - it: should have tls block when tls is enabled
+    set:
+      ingress.enabled: true
+      ingress.tls.enabled: true
+      ingress.tls.secretName: confero-tls
+      ingress.host: confero.example.org
+      ingress.className: nginx
+      oidc.issuerURL: https://keycloak.example.org/realms/confero
+      oidc.clientID: confero
+      session.secretRef.name: confero-session
+      session.secretRef.key: secret
+    asserts:
+      - isNotNull:
+          path: spec.tls
