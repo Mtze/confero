@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"confero/internal/api"
 	"confero/internal/auth"
@@ -47,9 +48,10 @@ func NewRouter(s *Server, tm *auth.TokenManager, oidcHandler *auth.OIDCHandler) 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Public endpoints — no authentication required.
+	// Infrastructure endpoints — no authentication required.
 	r.Group(func(r chi.Router) {
 		r.Get("/healthz", si.GetHealth)
+		r.Handle("/metrics", promhttp.Handler())
 		r.Get("/api/v1/conferences", w.ListConferences)
 		r.Get("/api/v1/conferences/{id}", w.GetConference)
 	})

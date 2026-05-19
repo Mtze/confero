@@ -7,12 +7,17 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"confero/internal/auth"
 	"confero/internal/config"
 	"confero/internal/database"
 	chihttp "confero/internal/http"
+	"confero/internal/mail"
 	"confero/internal/repository"
+	"confero/internal/scheduler"
 	"confero/internal/service"
 	"confero/internal/version"
 )
@@ -72,32 +77,50 @@ func run() int {
 	srv := chihttp.NewServer(logger, confSvc, starSvc, settingsSvc)
 	router := chihttp.NewRouter(srv, tm, oidcHandler)
 
+	mailer := &mail.FakeMailer{}
+	sched := scheduler.New(scheduler.Config{
+		Tick:      60 * time.Second,
+		Mailer:    mailer,
+		DB:        pool,
+		GraceDays: cfg.ArchiveGraceDays,
+		Logger:    logger,
+	}, nil)
+
 	httpServer := &http.Server{
 		Addr:    cfg.HTTPAddr,
 		Handler: router,
 	}
 
-	done := make(chan struct{})
-	go func() {
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
-		<-sig
-		logger.Info("shutting down")
-		if err := httpServer.Close(); err != nil {
-			logger.Error("close error", "err", err)
-		}
-		close(done)
-	}()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
 
-	logger.Info("starting server",
-		"addr", cfg.HTTPAddr,
-		"version", version.Version,
-		"commit", version.Commit,
-	)
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	g, gctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		logger.Info("starting server",
+			"addr", cfg.HTTPAddr,
+			"version", version.Version,
+			"commit", version.Commit,
+		)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			return err
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		return sched.Run(gctx)
+	})
+
+	g.Go(func() error {
+		<-gctx.Done()
+		logger.Info("shutting down")
+		return httpServer.Close()
+	})
+
+	if err := g.Wait(); err != nil {
 		logger.Error("server error", "err", err)
 		return 1
 	}
-	<-done
 	return 0
 }
