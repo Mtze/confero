@@ -1,0 +1,83 @@
+{
+  "realm": "confero",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "clients": [
+    {
+      "clientId": "confero",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "confero-secret",
+      "redirectUris": [
+        "http://localhost:8080/auth/callback",
+        "http://localhost:8080/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8080"
+      ],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "groups",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "name": "cs-edu-chair",
+      "path": "/cs-edu-chair"
+    },
+    {
+      "name": "cs-edu-chair-admin",
+      "path": "/cs-edu-chair-admin"
+    }
+  ],
+  "users": [
+    {
+      "username": "member",
+      "email": "member@example.org",
+      "firstName": "Test",
+      "lastName": "Member",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "confero",
+          "temporary": false
+        }
+      ],
+      "groups": ["/cs-edu-chair"]
+    },
+    {
+      "username": "admin",
+      "email": "admin@example.org",
+      "firstName": "Test",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "confero",
+          "temporary": false
+        }
+      ],
+      "groups": ["/cs-edu-chair", "/cs-edu-chair-admin"]
+    }
+  ]
+}
