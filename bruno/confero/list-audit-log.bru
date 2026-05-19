@@ -1,0 +1,11 @@
+meta {
+  name: List Audit Log
+  type: http
+  seq: 23
+}
+
+get {
+  url: {{baseUrl}}/api/v1/audit-log?limit=50
+  body: none
+  auth: none
+}

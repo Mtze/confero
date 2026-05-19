@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"confero/internal/auth"
+	"confero/internal/calendar"
 	"confero/internal/config"
 	"confero/internal/database"
 	chihttp "confero/internal/http"
@@ -74,7 +75,10 @@ func run() int {
 	confSvc := service.NewConferenceService(pool)
 	starSvc := service.NewStarService(pool)
 	settingsSvc := service.NewSettingsService(pool)
-	srv := chihttp.NewServer(logger, confSvc, starSvc, settingsSvc)
+	calSvc := service.NewCalendarService(pool, cfg.PublicBaseURL)
+	calBuilder := calendar.NewBuilder(pool)
+	srv := chihttp.NewServer(logger, confSvc, starSvc, settingsSvc, calSvc, calBuilder).
+		WithAuditQueries(queries)
 	router := chihttp.NewRouter(srv, tm, oidcHandler)
 
 	var mailer mail.Mailer
