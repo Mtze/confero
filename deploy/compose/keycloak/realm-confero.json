@@ -1,6 +1,7 @@
 {
   "realm": "confero",
   "enabled": true,
+  "sslRequired": "none",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "clients": [
